@@ -24,7 +24,7 @@ $RCSVersion=~s/^[^0-9]*([0-9]+\.[0-9]+).*$/$1/;
 my $RCSDate='$Date: 2006/08/22 12:19:24 $';
 $RCSDate=~s/^[^0-9]*(.+)\s*\$$/$1/;
 
-my $version = '2.0.0';
+my $version = '2.0.1';
 
 # --- end
 
@@ -1380,7 +1380,7 @@ Recovery und anlegen von Löschlisten ist ein experimentelles Feature.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2001-2007 by G. Mucha
+Copyright 2001-2009 by G. Mucha
 
 This code is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
