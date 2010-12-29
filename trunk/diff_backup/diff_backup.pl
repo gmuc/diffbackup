@@ -16,10 +16,10 @@ sub doShCmd;
 # --- define programm version
 
 my $vDate='$Date$';
-$vDate=~s/^[^0-9]*(.+)\s*\$$/$1/;
+$vDate=~s/^[^0-9]*(.+?)\s.*\$$/$1/;
 
 
-my $version = "2.2.0.beta1 $vDate";
+my $version = "2.2.0.beta2 ($vDate)";
 
 # --- end
 our (
