@@ -11,6 +11,7 @@ use Getopt::Long;
 use Env;
 use Config::General;
 Getopt::Long::Configure("no_ignorecase");
+
 sub doShCmd;
 
 # --- define programm version
