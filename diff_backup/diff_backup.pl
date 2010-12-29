@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #--------------------------------------------------------------------------------------------------------------
-# $RCSfile: diffBackup.pl,v $
-# $Revision: 1.15 $
-# $Date: 2006/08/22 12:19:24 $
-# $Author: mucha $
-# $Locker: mucha $
+# $Id$
+# $URL$
+# $Author$
+# $Revision$
+# $Date$
 #--------------------------------------------------------------------------------------------------------------
 use strict;
 use Getopt::Long;
@@ -14,15 +14,19 @@ Getopt::Long::Configure("no_ignorecase");
 sub doShCmd;
 
 # --- define programm version
-my $version = '2.1.0';
+
+my $vDate='$Date$';
+$vDate=~s/^[^0-9]*(.+)\s*\$$/$1/;
+
+
+my $version = "2.2.0.beta1 $vDate";
 
 # --- end
 our (
-   $opt_v,              $G_verbose_mode,  $opt_b,
-   $G_backup_only_mode, $opt_batch,       $opt_n,
-   $G_noaction_mode,    $opt_r,           $G_recovery_mode,
-   $opt_d,              $G_diffonly_mode, $opt_reusefileset,
-   $G_reusefileset_mode,
+    $opt_v,           $G_verbose_mode, $opt_b,           $G_backup_only_mode,
+    $opt_batch,       $opt_n,          $G_noaction_mode, $opt_r,
+    $G_recovery_mode, $opt_d,          $G_diffonly_mode, $opt_reusefileset,
+    $G_reusefileset_mode,
 );
 
 # --- alias definitionen
@@ -33,11 +37,9 @@ our (
 *G_noaction_mode     = *opt_n;
 *G_reusefileset_mode = *opt_reusefileset;
 
-my (
-   $G_yyddmm,         $G_config_file,    $G_base_backup_file,
-   $G_reuseFileset,   %G_config,         $G_start_time,
-   @G_data_old_cksum, $G_test_excl_file, @G_currentFileset,
-   @G_baseFileset,
+my ($G_yyddmm,         $G_config_file, $G_base_backup_file, $G_reuseFileset,
+    %G_config,         $G_start_time,  @G_data_old_cksum,   $G_test_excl_file,
+    @G_currentFileset, @G_baseFileset,
 );
 main();
 exit;
@@ -46,55 +48,54 @@ exit;
 # ------ subroutines definitions --------------------------------------------------------------------
 # ------ subroutines definitions --------------------------------------------------------------------
 sub main {
-   init();
-   get_config();
+    init();
+    get_config();
 
-   # todo: testen
-   if ( $G_reusefileset_mode and !$G_reuseFileset ) {
-      $G_reuseFileset = $G_config{reusefileset_default};
-   }
-   if ( $G_config{backupStatusFile} ne '' ) {
-      my $file = $G_config{backupStatusFile};
-      open FH, ">$file"
-          or die "Error 026: Open error status file '$file': $!\n";
-      close FH;
-   }
-   $G_start_time = time();
+    # todo: testen
+    if ( $G_reusefileset_mode and !$G_reuseFileset ) {
+        $G_reuseFileset = $G_config{reusefileset_default};
+    }
+    if ( $G_config{backupStatusFile} ne '' ) {
+        my $file = $G_config{backupStatusFile};
+        open FH, ">$file"
+            or die "Error 026: Open error status file '$file': $!\n";
+        close FH;
+    }
+    $G_start_time = time();
 
-   # ------ get cksum information form baseset files
-   if ( !defined $G_base_backup_file ) {
-      my $file = $G_config{cksumFileBaseSet};
-      open( FH, $file )
-          or die "Error 022: file not open '$file' $!\n";
-      @G_baseFileset = <FH>;
-      close FH;
-   }
+    # ------ get cksum information form baseset files
+    if ( !defined $G_base_backup_file ) {
+        my $file = $G_config{cksumFileBaseSet};
+        open( FH, $file )
+            or die "Error 022: file not open '$file' $!\n";
+        @G_baseFileset = <FH>;
+        close FH;
+    }
 
-   # ------ end
-   $G_config{diffBackupFile}
-       =~ s/yymmdd/$G_yyddmm/;    # substitute date macro in diffBackup filename
-   chdir $G_config{backUpBase}
-       or die
-       "Error 023: Can't change directory to backUpBase '$G_config{backUpBase}'\nCause: $!\n";
+    # ------ end
+    $G_config{diffBackupFile} =~ s/yymmdd/$G_yyddmm/; # substitute date macro in diffBackup filename
+    chdir $G_config{backUpBase}
+        or die
+        "Error 023: Can't change directory to backUpBase '$G_config{backUpBase}'\nCause: $!\n";
 
-   # ??? want recover from backuparchives ???
-   if ($G_recovery_mode) {
-      recover();
-      exit(0);
-   }
+    # ??? want recover from backuparchives ???
+    if ($G_recovery_mode) {
+        recover();
+        exit(0);
+    }
 
-   # ??? use backuponly ???
-   # yes: skip make cksumfile + diff-file for backup)
-   if ( !$G_backup_only_mode ) {
-      determine_backup_fileset();
-   }
-   do_backup();
-   make_current_cksum_file();
+    # ??? use backuponly ???
+    # yes: skip make cksumfile + diff-file for backup)
+    if ( !$G_backup_only_mode ) {
+        determine_backup_fileset();
+    }
+    do_backup();
+    make_current_cksum_file();
 
-   # ??? it's not a basebackup ???
-   if ( not defined $G_base_backup_file ) {
-      find_new_and_changed_files();
-   }
+    # ??? it's not a basebackup ???
+    if ( not defined $G_base_backup_file ) {
+        find_new_and_changed_files();
+    }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -115,47 +116,59 @@ sub main {
 # none
 #---------------------------------------------------------------------------------------------------
 sub init {
-   if ( $#ARGV == -1 ) {
-      usage();
-   }
+    if ( $#ARGV == -1 ) {
+        usage();
+    }
 
-   # todo: Formatierung mit perltidy
-   # todo: test von der cmd-Line aus
-   # todo: Doku im Wiki & POD & useage
-   # todo: Schreiben eines Tests
-   GetOptions(
-      'c|config=s', \$G_config_file,
-      'v|verbose',
-      'd|diffonly',
-      'version' => sub { print "\ndiffBackup.pl Version: $version\n\n"; exit },
-      'batch',
-      'ink',
-      'reusefileset:s', \$G_reuseFileset,
-      'n|noaction',
-      'r|recover',
-      't|testexcl:s', \$G_test_excl_file,      # for test exlude pattern
-      'base:s',       \$G_base_backup_file,    # optional filename basebackup
-      'b|backuponly',
-      'h|help|?', \&usage,
-   );
-   $G_config_file = "$ENV{HOME}/.diffBackUp.conf"
-       if ( !$G_config_file and -e "$ENV{HOME}/.diffBackUp.cfg" );
-   if ( !$G_config_file ) {
-      if ( -e "/etc/diffBackUp.cfg" ) {
-         $G_config_file = "/etc/diffBackUp.cfg";
-      }
-      else {
-         print "configFile is required argument\n\n";
-         usage();
-      }
-   }
-   my @gentime = localtime(time);
-   $gentime[5] -= 100;
-   $gentime[4]++;
-   $gentime[5] =~ s/^(.)$/0$1/;
-   $gentime[4] =~ s/^(.)$/0$1/;
-   $gentime[3] =~ s/^(.)$/0$1/;
-   $G_yyddmm = "$gentime[5]$gentime[4]$gentime[3]";
+    my $use_help;
+    
+    # todo: test von der cmd-Line aus
+    # todo: Schreiben eines Tests
+    
+    GetOptions(
+        'c|config=s', \$G_config_file,
+        'v|verbose',
+        'd|diffonly',
+        'version' => sub { print "\ndiffBackup.pl Version: $version\n\n"; exit },
+        'batch',
+        'ink',
+        'reusefileset:s', \$G_reuseFileset,
+        'n|noaction',
+        'r|recover',
+        't|testexcl:s', \$G_test_excl_file,      # for test exlude pattern
+        'base:s',       \$G_base_backup_file,    # optional filename basebackup
+        'b|backuponly',
+        'h|help|?', sub {$use_help = 1}
+    );
+    
+    $G_config_file = "$ENV{HOME}/.diffBackUp.conf"
+        if ( !$G_config_file and -e "$ENV{HOME}/.diffBackUp.cfg" );
+        
+    if ( !$G_config_file ) {
+        if ( -e "/etc/diffBackUp.cfg" ) {
+            $G_config_file = "/etc/diffBackUp.cfg";
+        }
+        else {
+            print "configFile is required argument\n\n";
+            usage();
+        }
+    }
+    
+    my @gentime = localtime(time);
+    $gentime[5] -= 100;
+    $gentime[4]++;
+    $gentime[5] =~ s/^(.)$/0$1/;
+    $gentime[4] =~ s/^(.)$/0$1/;
+    $gentime[3] =~ s/^(.)$/0$1/;
+    $G_yyddmm = "$gentime[5]$gentime[4]$gentime[3]";
+    
+    if($use_help){
+       usage('not_exit');
+       
+       print "\nused config: $G_config_file\n";
+       
+       exit 1;
+    }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -176,97 +189,93 @@ sub init {
 # none
 #---------------------------------------------------------------------------------------------------
 sub get_config {
-   my $conf = new Config::General(
-      -ConfigFile      => $G_config_file,
-      -InterPolateVars => 1
-   );
-   %G_config   = $conf->getall;
-   $DB::single = 1;
-   my $badConfig;
+    my $conf = new Config::General(
+        -ConfigFile      => $G_config_file,
+        -InterPolateVars => 1
+    );
+    %G_config   = $conf->getall;
+    $DB::single = 1;
+    my $badConfig;
 
-   # ------ check required parameter
-   my @requiredParam = qw(baseBackNr backupBaseDate searchDirs);
+    # ------ check required parameter
+    my @requiredParam = qw(baseBackNr backupBaseDate searchDirs);
 
-   # wird der Argument "base" benutzt???
-   push @requiredParam, "baseBackupFile" if ( !defined $G_base_backup_file );
-   foreach (@requiredParam) {
-      if ( !$G_config{$_} ) {
-         print "Configurationparameter '$_' missing!\n";
-         $badConfig = 1;
-      }
-   }
-   die "\n\nError 024: Incomplete configurationfile.'$G_config_file'!\n\n"
-       if $badConfig;
+    # wird der Argument "base" benutzt???
+    push @requiredParam, "baseBackupFile" if ( !defined $G_base_backup_file );
+    foreach (@requiredParam) {
+        if ( !$G_config{$_} ) {
+            print "Configurationparameter '$_' missing!\n";
+            $badConfig = 1;
+        }
+    }
+    die "\n\nError 024: Incomplete configurationfile.'$G_config_file'!\n\n"
+        if $badConfig;
 
-   # ------ end
-   # ??? work in verbose mode ???
-   # yes: output read configuration
-   if ($G_verbose_mode) {
-      my ( $mi, $hh, $dd, $mm, $yyyy ) = (localtime)[ 1 .. 5 ];
-      printf "Starttime %.2d.%.2d.%s %s:%.2d\n\n", $dd, $mm + 1, $yyyy + 1900,
-          $hh, $mi;
-      print "Configuration:\n\nparameter = value;\n";
-      foreach ( sort keys %G_config ) {
-         print "$_ =$G_config{$_};\n";
-      }
-      print "Environment:\n\nparameter =value;\n";
-      foreach ( sort keys %ENV ) {
-         print "\n$_=$ENV{$_};";
-      }
-      print "\n\n";
-   }
-   my $home = `cd ~; pwd`;
-   chop $home;
+    # ------ end
+    # ??? work in verbose mode ???
+    # yes: output read configuration
+    if ($G_verbose_mode) {
+        my ( $mi, $hh, $dd, $mm, $yyyy ) = (localtime)[ 1 .. 5 ];
+        printf "Starttime %.2d.%.2d.%s %s:%.2d\n\n", $dd, $mm + 1, $yyyy + 1900, $hh, $mi;
+        print "Configuration:\n\nparameter = value;\n";
+        foreach ( sort keys %G_config ) {
+            print "$_ =$G_config{$_};\n";
+        }
+        print "Environment:\n\nparameter =value;\n";
+        foreach ( sort keys %ENV ) {
+            print "\n$_=$ENV{$_};";
+        }
+        print "\n\n";
+    }
+    my $home = `cd ~; pwd`;
+    chop $home;
 
-   # ??? is backUpBase NOT defined ???
-   # yes: set backUpBase default value
-   if ( $G_config{backUpBase} eq '' ) {
-      $G_config{backUpBase} = $home;
-   }
+    # ??? is backUpBase NOT defined ???
+    # yes: set backUpBase default value
+    if ( $G_config{backUpBase} eq '' ) {
+        $G_config{backUpBase} = $home;
+    }
 
-   # ??? is diffBackDir NOT defined ???
-   # yes: set diffBackDir default value
-   if ( $G_config{diffBackDir} eq '' ) {
-      $G_config{diffBackDir} = "$home/diffBackup";
-      if ( !-e $G_config{diffBackDir} ) {
-         if ( !mkdir $G_config{diffBackDir} ) {
-            die "Error 027: can't make backup directory\n$!\n";
-         }
-      }
-   }
-   if ( $G_config{backupName} eq '' ) {
-      $G_config{backupName} = "diffbackup";
-   }
-   if ( $G_config{cksumFileCurrStat} eq '' ) {
-      $G_config{cksumFileCurrStat} =
-          "$G_config{backupName}.curr_userdata.cksum";
-   }
-   if ( $G_config{diffFileSet} eq '' ) {
-      $G_config{diffFileSet} = "$G_config{backupName}.diffFileSet.userdata.txt";
-   }
-   if ( $G_config{backupStatusFile} eq '' ) {
-      $G_config{backupStatusFile} = "$G_config{backupName}.statusFile.txt";
-   }
-   if ( $G_config{cksumFileBaseSet} eq '' ) {
-      $G_config{cksumFileBaseSet} =
-          "$G_config{backupName}.$G_config{backupBaseDate}.userdata.base$G_config{baseBackNr}.cksum";
-   }
-   $G_config{diffBackDir} =~ s/\/\s*$//;    # delete whitespace on string end
-   if ( !( -r $G_config{diffBackDir} and -x $G_config{diffBackDir} ) ) {
-      die
-          "Error 028: backup directory '$G_config{diffBackDir}' is not accessable or readable\n";
-   }
-   my @parameter_list = qw(
-       cksumFileCurrStat diffFileSet diffBackupFile
-       baseBackupFile cksumFileBaseSet exclPatt
-       backupStatusFile
-   );
-   foreach my $param_name (@parameter_list) {
-      if ( $G_config{$param_name} !~ /^\// ) {
-         $G_config{$param_name} =
-             $G_config{diffBackDir} . '/' . $G_config{$param_name};
-      }
-   }
+    # ??? is diffBackDir NOT defined ???
+    # yes: set diffBackDir default value
+    if ( $G_config{diffBackDir} eq '' ) {
+        $G_config{diffBackDir} = "$home/diffBackup";
+        if ( !-e $G_config{diffBackDir} ) {
+            if ( !mkdir $G_config{diffBackDir} ) {
+                die "Error 027: can't make backup directory\n$!\n";
+            }
+        }
+    }
+    if ( $G_config{backupName} eq '' ) {
+        $G_config{backupName} = "diffbackup";
+    }
+    if ( $G_config{cksumFileCurrStat} eq '' ) {
+        $G_config{cksumFileCurrStat} = "$G_config{backupName}.curr_userdata.cksum";
+    }
+    if ( $G_config{diffFileSet} eq '' ) {
+        $G_config{diffFileSet} = "$G_config{backupName}.diffFileSet.userdata.txt";
+    }
+    if ( $G_config{backupStatusFile} eq '' ) {
+        $G_config{backupStatusFile} = "$G_config{backupName}.statusFile.txt";
+    }
+    if ( $G_config{cksumFileBaseSet} eq '' ) {
+        $G_config{cksumFileBaseSet} =
+            "$G_config{backupName}.$G_config{backupBaseDate}.userdata.base$G_config{baseBackNr}.cksum";
+    }
+    $G_config{diffBackDir} =~ s/\/\s*$//;    # delete whitespace on string end
+    if ( !( -r $G_config{diffBackDir} and -x $G_config{diffBackDir} ) ) {
+        die "Error 028: backup directory '$G_config{diffBackDir}' is not accessable or readable\n";
+    }
+    my @parameter_list = qw(
+        cksumFileCurrStat diffFileSet diffBackupFile
+        baseBackupFile cksumFileBaseSet exclPatt
+        backupStatusFile
+    );
+    foreach my $param_name (@parameter_list) {
+        if ( $G_config{$param_name} !~ /^\// ) {
+            $G_config{$param_name} = $G_config{diffBackDir} . '/' . $G_config{$param_name};
+        }
+    }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -282,24 +291,24 @@ sub get_config {
 #---------------------------------------------------------------------------------------------------
 sub prepare_base_backup_filename {
 
-   # take backupfile from arguments ???
-   if ( $G_base_backup_file ne '' ) {
-      $G_config{cksumFileCurrStat} = $G_base_backup_file;
-      $G_config{cksumFileCurrStat}
-          =~ s/\.(tgz|tar|cksum)\s*$//; # cut not recommended filename extention
-      $G_config{cksumFileCurrStat} .= ".cksum";
-   }
+    # take backupfile from arguments ???
+    if ( $G_base_backup_file ne '' ) {
+        $G_config{cksumFileCurrStat} = $G_base_backup_file;
+        $G_config{cksumFileCurrStat}
+            =~ s/\.(tgz|tar|cksum)\s*$//;    # cut not recommended filename extention
+        $G_config{cksumFileCurrStat} .= ".cksum";
+    }
 
-   # take name backupfile from configfile
-   elsif ( $G_config{baseBackupFile} ne '' ) {
-      $G_base_backup_file = $G_config{baseBackupFile};
-      $G_config{cksumFileCurrStat} = $G_config{cksumFileBaseSet};
-   }
-   else {
-      die
-          "Error 001: Parameter 'baseBackupFile' is not defined in configuration file '$G_config_file'!\n";
-   }
-   $G_base_backup_file =~ s/yymmdd/$G_yyddmm/;
+    # take name backupfile from configfile
+    elsif ( $G_config{baseBackupFile} ne '' ) {
+        $G_base_backup_file = $G_config{baseBackupFile};
+        $G_config{cksumFileCurrStat} = $G_config{cksumFileBaseSet};
+    }
+    else {
+        die
+            "Error 001: Parameter 'baseBackupFile' is not defined in configuration file '$G_config_file'!\n";
+    }
+    $G_base_backup_file =~ s/yymmdd/$G_yyddmm/;
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -320,174 +329,201 @@ sub prepare_base_backup_filename {
 # none
 #---------------------------------------------------------------------------------------------------
 sub determine_backup_fileset {
-   $DB::single = 1;
-   my ($command);
+    $DB::single = 1;
+    my ($command);
 
-   # $G_base_backup_file == undef -> if no using of startflag "base"
-   # ??? create base backup ???
-   # yes: define cksumFileCurrStat
-   if ( defined $G_base_backup_file ) {
-      prepare_base_backup_filename();
-   }
+    # $G_base_backup_file == undef -> if no using of startflag "base"
+    # ??? create base backup ???
+    # yes: define cksumFileCurrStat
+    if ( defined $G_base_backup_file ) {
+        prepare_base_backup_filename();
+    }
 
-   # cksum file to store cksum from all current files in the backup fileset
-   my $file = $G_config{cksumFileCurrStat};
+    # cksum file to store cksum from all current files in the backup fileset
+    my $file = $G_config{cksumFileCurrStat};
 
-   # ??? exists cksum file ???
-   # yes: make a backup from last version of cksum file & read the complete
-   # cksum for later check of file changes
-   if ( -e $file ) {
-      open FH, $file or die "Erorr 002: Can't open file '$file'!\nError:\n$!\n";
-      `cp $file $file.old`;
-      @G_data_old_cksum = <FH>;
-   }
+    # ??? exists cksum file ???
+    # yes: make a backup from last version of cksum file & read the complete
+    # cksum for later check of file changes
+    if ( -e $file ) {
+        open FH, $file or die "Erorr 002: Can't open file '$file'!\nError:\n$!\n";
+        `cp $file $file.old`;
+        @G_data_old_cksum = <FH>;
+    }
 
-   # --- determine current filelist
-   my $curr_file_list;
+    # --- determine current filelist
+    my $curr_file_list;
 
-   # todo: doku & test
-   if ($G_reuseFileset) {
-      $curr_file_list = $G_reuseFileset;
-   }
-   else {
+    # todo: doku & test
+    if ($G_reuseFileset) {
+        $curr_file_list = $G_reuseFileset;
+    }
+    else {
 
-      # make filelist by find
-      $curr_file_list = "$G_config{diffBackDir}/curr_files.tmp.txt";
-      $command = "find $G_config{searchDirs} -type f 2>&1 1> $curr_file_list";
-      doShCmd $command, $G_verbose_mode, $G_noaction_mode;
-   }
-   if ($G_verbose_mode) {
-      print "\nList of all found files without filter  in: $curr_file_list\n";
-   }
+        # make filelist by find
+        $curr_file_list = "$G_config{diffBackDir}/curr_files.tmp.txt";
+        $command        = "find $G_config{searchDirs} -type f 2>&1 1> $curr_file_list";
+        doShCmd $command, $G_verbose_mode, $G_noaction_mode;
+    }
+    if ($G_verbose_mode) {
+        print "\nList of all found files without filter  in: $curr_file_list\n";
+    }
 
-   # --- end
-   # ??? is exlude pattern file defined in commandline arguments ???
-   # yes: overwrite definition in configfile
-   if ( defined $G_test_excl_file and $G_test_excl_file ne '' ) {
-      $G_config{exclPatt} = $G_test_excl_file;
-   }
+    # --- end
+    # ??? is exlude pattern file defined in commandline arguments ???
+    # yes: overwrite definition in configfile
+    if ( defined $G_test_excl_file and $G_test_excl_file ne '' ) {
+        $G_config{exclPatt} = $G_test_excl_file;
+    }
 
-   # make exclude pattern from exclude pattern file
-   my ( $raw_pattern, $excl_pattern ) = get_patterns( $G_config{exclPatt} );
+    # make exclude pattern from exclude pattern file
+    my ( $raw_pattern, $excl_pattern ) = get_patterns( $G_config{exclPatt} );
 
-   # ??? is exclude pattern test mode and no pattern is defined in pattern file
-   # yes: die because without pattern is no test possible
-   if ( defined $G_test_excl_file
-      and ( !defined $excl_pattern or $excl_pattern eq '' ) )
-   {
-      die
-          "Error 003: There is no exclude pattern in pattern file '$G_config{exclPatt}' in test-exclude-pattern mode\n";
-   }
-   my $excluded_files = exclude_files_from_fileset(
-      "$G_config{diffBackDir}/excluded_files.tmp.txt",
-      $G_config{cksumFileCurrStat},
-      $curr_file_list, $excl_pattern
-   );
+    # ??? is exclude pattern test mode and no pattern is defined in pattern file
+    # yes: die because without pattern is no test possible
+    if ( defined $G_test_excl_file
+        and ( !defined $excl_pattern or $excl_pattern eq '' ) )
+    {
+        die
+            "Error 003: There is no exclude pattern in pattern file '$G_config{exclPatt}' in test-exclude-pattern mode\n";
+    }
 
-   # ??? is exclude pattern TEST mode used ???
-   # yes: exit diffbackup why exclude pattern test job is finished
-   if ( defined $G_test_excl_file ) {
-      print "\nTest for excludepattern:\n\n"
-          . "diffBackup base dir: '$G_config{backUpBase}'\n\n"
-          . "file search dirs: '$G_config{searchDirs}'\n\n"
-          . "all found files: '$curr_file_list'\n\n"
-          . "exclude pattern: \n$raw_pattern\n"
-          . "excluded files:\n"
-          . eval { join "\n", @{$excluded_files} } . "\n\n";
-      exit 0;
-   }
+    my $excluded_files = exclude_files_from_fileset(
+        "$G_config{diffBackDir}/excluded_files.tmp.txt",
+        $G_config{cksumFileCurrStat},
+        $curr_file_list, $excl_pattern
+    );
 
-   # cksumfile basefileset is empty is a baseback is run
-   $G_config{cksumFileBaseSet} = " / dev / null "
-       if ( defined $G_base_backup_file );
+    # ??? is exclude pattern TEST mode used ???
+    # yes: exit diffbackup why exclude pattern test job is finished
+    if ( defined $G_test_excl_file ) {
+        print "\nTest for excludepattern:\n\n"
+            . "diffBackup base dir: '$G_config{backUpBase}'\n\n"
+            . "file search dirs: '$G_config{searchDirs}'\n\n"
+            . "all found files: '$curr_file_list'\n\n"
+            . "exclude pattern: \n$raw_pattern\n"
+            . "excluded files:\n"
+            . eval { join "\n", @{$excluded_files} } . "\n\n";
+        exit 0;
+    }
 
-   # make list of files for backup tar file
-   diffcksum();
+    # cksumfile basefileset is empty is a baseback is run
+    $G_config{cksumFileBaseSet} = " / dev / null "
+        if ( defined $G_base_backup_file );
 
-   # ??? is exclude pattern TEST mode used ???
-   # yes: exit programm
-   if ($G_diffonly_mode) {
-      print " Filedifferenz : $G_config{diffFileSet} \n ";
-      exit 0;
-   }
+    # make list of files for backup tar file
+    diffcksum();
+
+    # ??? is exclude pattern TEST mode used ???
+    # yes: exit programm
+    if ($G_diffonly_mode) {
+        print " Filedifferenz : $G_config{diffFileSet} \n ";
+        exit 0;
+    }
 }
 
 # todo: Doku & test
+# todo: TEST > cksum abschaltbar bei Patternstests
+#---------------------------------------------------------------------------------------------------
+# function: exclude_files_from_fileset
+#
+# description:
+#
+# Exclude files from current fileset by useing an exclude pattern.
+# Determine and log from all included files cksum data.
+#
+# interface
+#
+# input (O = optional)
+# 1. $log_file_excl_pattern - name of logfile for excluded pattern
+# 2. $cksum_file            - name of cksum-file
+# 3. $current_files         - name of current fileset
+# 4. $excl_pattern          - pattern for exclude files
+#
+# output
+# 1. \@excluded_files - List of all excluded files
+#---------------------------------------------------------------------------------------------------
 sub exclude_files_from_fileset {
-   my ( $log_file, $cksum_file, $current_files, $excl_pattern ) = @_;
+    my ( $log_file_excl_pattern, $cksum_file, $current_files, $excl_pattern ) = @_;
 
-   # avoid a null exlcude pattern
-   $excl_pattern = '' if ( !defined $excl_pattern );
-   my ( $ret, $status, $command );
-   my @excluded_files;
+    # avoid a null exlcude pattern
+    $excl_pattern = '' if ( !defined $excl_pattern );
+    my ( $ret, $status, $command );
+    my @excluded_files;
 
-   # open log of excluded files
-   my $file = $log_file;
-   open FH_EXCL, " > $file "
-       or die " Error 004 : Can't open file '$file' !\nError : \n $!\n ";
+    # open log of excluded files
+    my $file = $log_file_excl_pattern;
+    open FH_EXCL, " > $file "
+        or die " Error 004 : Can't open file '$file' !\nError : \n $!\n ";
 
-   # open new file for cksum data current files
-   $file = $cksum_file;
-   open FH_CKSUM, " > $file "
-       or die " Error 004 : Can't open file '$file' !\nError : \n $!\n ";
+    if ( !defined $G_test_excl_file ) {
 
-   # open list of current files
-   $file = $current_files;
-   open FH, $file
-       or die " Error 004 : Can't open file '$file' !\nError : \n $!\n ";
-   my $workdir = `pwd`;
-   chomp $workdir;
+        # open new file for cksum data current files
+        $file = $cksum_file;
+        open FH_CKSUM, " > $file "
+            or die " Error 004 : Can't open file '$file' !\nError : \n $!\n ";
+    }
 
-   # determine save file list
-   while ( $file = <FH> ) {
-      chop $file;
+    # open list of current files
+    $file = $current_files;
+    open FH, $file
+        or die " Error 004 : Can't open file '$file' !\nError : \n $!\n ";
+    my $workdir = `pwd`;
+    chomp $workdir;
 
-      # ??? exclude file from save fileset ???
-      if ( $file =~ /$excl_pattern/ ) {
-         print FH_EXCL "$file \n ";
-         push @excluded_files, $file;
-         next;
-      }
+    # determine save file list
+    while ( $file = <FH> ) {
+        chop $file;
 
-      # ??? is exclude pattern TEST mode used ???
-      # yes: proceed next file, why don't need generate a save fileset
-      if ( defined $G_test_excl_file ) {
-         next;
-      }
+        # ??? exclude file from save fileset ???
+        if ( $file =~ /$excl_pattern/ ) {
+            print FH_EXCL "$file \n ";
+            push @excluded_files, $file;
+            next;
+        }
 
-      # ??? file for cksum not exists ???
-      if ( !-e $file ) {
-         warn
-             " Error 031 : File not exists workdir '$workdir' file '$file' for cksum !\n ";
-         next;
-      }
+        # ??? is exclude pattern TEST mode used ???
+        # yes: proceed next file, why don't need generate a save fileset
+        if ( defined $G_test_excl_file ) {
+            next;
+        }
 
-      # ??? file for cksum isn't a plain file  ???
-      if ( !-f $file ) {
-         warn
-             " Error 032 : File workdir '$workdir' file '$file' for cksum, isn't a plain file !\n ";
-         next;
-      }
+        # ??? file for cksum not exists ???
+        if ( !-e $file ) {
+            warn " Error 031 : File not exists workdir '$workdir' file '$file' for cksum !\n ";
+            next;
+        }
 
-      # prepare filename for `` execution
-      $file =~ s/\$/\\\$/g;
-      $file =~ s/ /\ /g;
+        # ??? file for cksum isn't a plain file  ???
+        if ( !-f $file ) {
+            warn
+                " Error 032 : File workdir '$workdir' file '$file' for cksum, isn't a plain file !\n ";
+            next;
+        }
 
-      # execute file cksum and write it in cksum file current fileset
-      $command = " cksum \"$file\"";
-      $ret     = `$command 2>&1`;
-      $status  = $? >> 8;
-      if ($status) {
-         warn
-             "Error 029: Execution of command\n$command\n$ret\nworkingdir:$workdir\n";
-      }
-      else {
-         print FH_CKSUM $ret;
-      }
-   }
-   close FH_EXCL;
-   close FH_CKSUM;
-   return \@excluded_files;
+        # prepare filename for `` execution
+        $file =~ s/\$/\\\$/g;
+        $file =~ s/ /\ /g;
+
+        # ??? NO Test exclude pattern ???
+        # yes: determine cksum data & log to cksum file
+        if ( !defined $G_test_excl_file ) {
+
+            # execute file cksum and write it in cksum file current fileset
+            $command = " cksum \"$file\"";
+            $ret     = `$command 2>&1`;
+            $status  = $? >> 8;
+            if ($status) {
+                warn "Error 029: Execution of command\n$command\n$ret\nworkingdir:$workdir\n";
+            }
+            else {
+                print FH_CKSUM $ret;
+            }
+        }
+    }
+    close FH_EXCL;
+    close FH_CKSUM;
+    return \@excluded_files;
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -508,31 +544,31 @@ sub exclude_files_from_fileset {
 # none
 #---------------------------------------------------------------------------------------------------
 sub diffcksum {
-   my $file = $G_config{cksumFileCurrStat};
-   open( SET_CURRENT, $file ) or die "Error 007: file not open '$file' $!\n\n";
-   $file = $G_config{diffFileSet};
-   open( DIFF_FILE_SET, ">$file" )
-       or die "Error 008: file not open '$file' $!\n\n";
-   my %baseFileset;
+    my $file = $G_config{cksumFileCurrStat};
+    open( SET_CURRENT, $file ) or die "Error 007: file not open '$file' $!\n\n";
+    $file = $G_config{diffFileSet};
+    open( DIFF_FILE_SET, ">$file" )
+        or die "Error 008: file not open '$file' $!\n\n";
+    my %baseFileset;
 
-# push basefileset in a hash to use it execute diff fileset with high performance
-   foreach (@G_baseFileset) {
-      $baseFileset{$_} = 1;
-   }
-   my ( @a, $fileName, $line_f1, $baseFile );
-   while (<SET_CURRENT>) {
-      $line_f1  = $_;                        # line contain checksum & filename
-      @a        = split / +/, $line_f1, 3;
-      $fileName = $a[2];
-      push @G_currentFileset, $fileName;    # collect currentfiles for later use
+    # push basefileset in a hash to use it execute diff fileset with high performance
+    foreach (@G_baseFileset) {
+        $baseFileset{$_} = 1;
+    }
+    my ( @a, $fileName, $line_f1, $baseFile );
+    while (<SET_CURRENT>) {
+        $line_f1  = $_;                        # line contain checksum & filename
+        @a        = split / +/, $line_f1, 3;
+        $fileName = $a[2];
+        push @G_currentFileset, $fileName;     # collect currentfiles for later use
 
-      # ??? don't exists file in base fileset ???
-      # yes: write file in diff fileset
-      if ( !exists( $baseFileset{$line_f1} ) ) {
-         print DIFF_FILE_SET $fileName;
-      }
-   }
-   close DIFF_FILE_SET;
+        # ??? don't exists file in base fileset ???
+        # yes: write file in diff fileset
+        if ( !exists( $baseFileset{$line_f1} ) ) {
+            print DIFF_FILE_SET $fileName;
+        }
+    }
+    close DIFF_FILE_SET;
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -554,31 +590,31 @@ sub diffcksum {
 # none
 #---------------------------------------------------------------------------------------------------
 sub make_rm_list {
-   my $file = $G_config{diffBackupFile};
-   open( RM_LIST, ">${file}.rmlist.txt" )
-       or die "Error 009: file not open '$file' $!\n\n";
-   my ( @a, $file_is_removed, $baseFile );
+    my $file = $G_config{diffBackupFile};
+    open( RM_LIST, ">${file}.rmlist.txt" )
+        or die "Error 009: file not open '$file' $!\n\n";
+    my ( @a, $file_is_removed, $baseFile );
 
-   # look for all files from base files if file is removed or not
-   foreach (@G_baseFileset) {
-      @a               = split / +/, $_, 3;
-      $baseFile        = $a[2];
-      $file_is_removed = 1;
+    # look for all files from base files if file is removed or not
+    foreach (@G_baseFileset) {
+        @a               = split / +/, $_, 3;
+        $baseFile        = $a[2];
+        $file_is_removed = 1;
 
-      # search file from base filelist in current filelist
-      foreach my $currentFile (@G_currentFileset) {
+        # search file from base filelist in current filelist
+        foreach my $currentFile (@G_currentFileset) {
 
-         # file is still in current fileset
-         if ( $baseFile eq $currentFile ) {
-            $file_is_removed = 0;
-         }
-      }
+            # file is still in current fileset
+            if ( $baseFile eq $currentFile ) {
+                $file_is_removed = 0;
+            }
+        }
 
-      # file is removed in current fileset
-      if ($file_is_removed) {
-         print RM_LIST $baseFile;
-      }
-   }
+        # file is removed in current fileset
+        if ($file_is_removed) {
+            print RM_LIST $baseFile;
+        }
+    }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -600,41 +636,40 @@ sub make_rm_list {
 # none
 #---------------------------------------------------------------------------------------------------
 sub do_backup {
-   my $backupFile = $G_config{diffBackupFile};
+    my $backupFile = $G_config{diffBackupFile};
 
-   # you want a basebackup ???
-   if ( defined $G_base_backup_file ) {
+    # you want a basebackup ???
+    if ( defined $G_base_backup_file ) {
 
-      # get name of basebackup from commandargs
-      $backupFile = $G_base_backup_file;
+        # get name of basebackup from commandargs
+        $backupFile = $G_base_backup_file;
 
-      # prevent remove an old basebackup
-      if ( -e $backupFile ) {
-         if ($opt_batch) {
-            print "Basebackup with name '$backupFile' overwrite!\n";
-         }
-         else {
-            print
-                "Already exists a base backup with the name '$backupFile'!\n\nFile overwrite überschreiben? (y/n)";
-            chop( my $overwrite = <> );
-            if ( $overwrite ne "y" ) {
-               die
-                   "Error 010: Abort backup, why backupfile '$backupFile' already exist!!!\n";
+        # prevent remove an old basebackup
+        if ( -e $backupFile ) {
+            if ($opt_batch) {
+                print "Basebackup with name '$backupFile' overwrite!\n";
             }
-         }
-      }
-   }
+            else {
+                print
+                    "Already exists a base backup with the name '$backupFile'!\n\nFile overwrite überschreiben? (y/n)";
+                chop( my $overwrite = <> );
+                if ( $overwrite ne "y" ) {
+                    die "Error 010: Abort backup, why backupfile '$backupFile' already exist!!!\n";
+                }
+            }
+        }
+    }
 
-   # Backupfile absolute Path is not given???
-   # yes: take current dir a destination dir for backupfile
-   if ( not $backupFile =~ /^\// ) {
-      $_ = `pwd`;
-      s/\/\s*$//s;    # cut last / from path
-      $backupFile = "$_/$backupFile";
-   }
-   my $err_tar_log     = "${backupFile}.err";
-   my $content_tar_log = "${backupFile}.content.txt";
-   print <<END;
+    # Backupfile absolute Path is not given???
+    # yes: take current dir a destination dir for backupfile
+    if ( not $backupFile =~ /^\// ) {
+        $_ = `pwd`;
+        s/\/\s*$//s;    # cut last / from path
+        $backupFile = "$_/$backupFile";
+    }
+    my $err_tar_log     = "${backupFile}.err";
+    my $content_tar_log = "${backupFile}.content.txt";
+    print <<END;
 
 Savefileset:       $G_config{diffFileSet}
 
@@ -651,58 +686,55 @@ cksum Savefileset: $G_config{cksumFileCurrStat}
 cksum Basefileset: $G_config{cksumFileBaseSet}
 END
 
-   # make backup tar file
-   my $command =
-       "tar cvzf $backupFile --ignore-failed-read -T $G_config{diffFileSet} 2>$err_tar_log";
-   doShCmd $command, $G_verbose_mode, $G_noaction_mode;
+    # make backup tar file
+    my $command =
+        "tar cvzf $backupFile --ignore-failed-read -T $G_config{diffFileSet} 2>$err_tar_log";
+    doShCmd $command, $G_verbose_mode, $G_noaction_mode;
 
-   # ??? error log has no content ???
-   if ( -z $err_tar_log ) {
-      unlink $err_tar_log
-          or die "Error 011: Fehler beim unlink der Datei $err_tar_log!\n$!\n";
-   }
+    # ??? error log has no content ???
+    if ( -z $err_tar_log ) {
+        unlink $err_tar_log
+            or die "Error 011: Fehler beim unlink der Datei $err_tar_log!\n$!\n";
+    }
 
-   # ??? exist a backupfile ???
-   # yes: generate a content file and sort file after size
-   if ( !-z $backupFile ) {
-      if ( $G_config{backupStatusFile} ne '' ) {
-         my $file = $G_config{backupStatusFile};
-         open FH, ">$file"
-             or die "Error 025: Open error status file '$file': $!\n";
-         print FH $backupFile . "\n";
-         close FH;
-      }
-      doShCmd "tar tvzf $backupFile >$content_tar_log", $G_verbose_mode,
-          $G_noaction_mode;
-      open FH, $content_tar_log
-          or die "Error 012: Open error file '$content_tar_log': $!\n";
-      my @lines = <FH>;
-      open FH, ">$content_tar_log"
-          or die "Error 013: Open error file '$content_tar_log': $!\n";
-      foreach (@lines) {
-         my @a = split /\s+/, $_, 4;
-         printf FH "%s %15.15s %10.10d %s", $a[0], $a[1], $a[2], $a[3];
-      }
-      close FH;
-      doShCmd "sort -k3 -r $content_tar_log > $content_tar_log.sort",
-          $G_verbose_mode, $G_noaction_mode;
-      doShCmd "mv $content_tar_log.sort $content_tar_log", $G_verbose_mode,
-          $G_noaction_mode;
+    # ??? exist a backupfile ???
+    # yes: generate a content file and sort file after size
+    if ( !-z $backupFile ) {
+        if ( $G_config{backupStatusFile} ne '' ) {
+            my $file = $G_config{backupStatusFile};
+            open FH, ">$file"
+                or die "Error 025: Open error status file '$file': $!\n";
+            print FH $backupFile . "\n";
+            close FH;
+        }
+        doShCmd "tar tvzf $backupFile >$content_tar_log", $G_verbose_mode, $G_noaction_mode;
+        open FH, $content_tar_log
+            or die "Error 012: Open error file '$content_tar_log': $!\n";
+        my @lines = <FH>;
+        open FH, ">$content_tar_log"
+            or die "Error 013: Open error file '$content_tar_log': $!\n";
+        foreach (@lines) {
+            my @a = split /\s+/, $_, 4;
+            printf FH "%s %15.15s %10.10d %s", $a[0], $a[1], $a[2], $a[3];
+        }
+        close FH;
+        doShCmd "sort -k3 -r $content_tar_log > $content_tar_log.sort", $G_verbose_mode,
+            $G_noaction_mode;
+        doShCmd "mv $content_tar_log.sort $content_tar_log", $G_verbose_mode, $G_noaction_mode;
 
-      #make_rm_list();
-   }
-   my $head_lines = 20;
+        #make_rm_list();
+    }
+    my $head_lines = 20;
 
-   # ??? it's a base backup ???
-   if ( $backupFile eq $G_config{baseBackupFile} ) {
-      print "\nBackupfile:\n" . `ls -l $backupFile` . "\n\n";
-   }
-   else {    # ??? commen backup ???
-      print "\nBackupfile:\n"
-          . `ls -l $backupFile $G_config{baseBackupFile}` . "\n\n";
-   }
-   print "\nFirst $head_lines largest entries in backup archiv:\n\n"
-       . `head -$head_lines $content_tar_log` . "\n\n";
+    # ??? it's a base backup ???
+    if ( $backupFile eq $G_config{baseBackupFile} ) {
+        print "\nBackupfile:\n" . `ls -l $backupFile` . "\n\n";
+    }
+    else {    # ??? commen backup ???
+        print "\nBackupfile:\n" . `ls -l $backupFile $G_config{baseBackupFile}` . "\n\n";
+    }
+    print "\nFirst $head_lines largest entries in backup archiv:\n\n"
+        . `head -$head_lines $content_tar_log` . "\n\n";
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -723,53 +755,53 @@ END
 # 1. @pattern      - list of patterns read from patternfiles
 #---------------------------------------------------------------------------------------------------
 sub get_patterns {
-   my (@patternfiles) = @_;
-   my @pattern_list;
-   my $raw_pattern;
+    my (@patternfiles) = @_;
+    my @pattern_list;
+    my $raw_pattern;
 
-   # proceed all patternfiles
-   foreach my $file (@patternfiles) {
+    # proceed all patternfiles
+    foreach my $file (@patternfiles) {
 
-      # ??? is filename not empty ???
-      if ( $file ne '' ) {
-         open FH, $file
-             or die "Error 014: Can't open file '$file'!\nError:\n$!\n";
-      }
-      else {
-         push @pattern_list, '';
-         next;
-      }
-      my @lines;
-      my $pattern = '';
+        # ??? is filename not empty ???
+        if ( $file ne '' ) {
+            open FH, $file
+                or die "Error 014: Can't open file '$file'!\nError:\n$!\n";
+        }
+        else {
+            push @pattern_list, '';
+            next;
+        }
+        my @lines;
+        my $pattern = '';
 
-      # read complete pattern list
-      # ignore empty lines and lines beginning with \s*#
-      foreach (<FH>) {
-         chop;
-         next if (/^\s*$|^\s*#/);
-         $raw_pattern .= "$_\n";
-         push @lines, $_;
-      }
+        # read complete pattern list
+        # ignore empty lines and lines beginning with \s*#
+        foreach (<FH>) {
+            chop;
+            next if (/^\s*$|^\s*#/);
+            $raw_pattern .= "$_\n";
+            push @lines, $_;
+        }
 
-      # generate a or joined pattern list
-      if ( @lines >= 2 ) {
-         $pattern = join( "|", @lines );
-      }
-      else {
-         $pattern = $lines[0];
-      }
+        # generate a or joined pattern list
+        if ( @lines >= 2 ) {
+            $pattern = join( "|", @lines );
+        }
+        else {
+            $pattern = $lines[0];
+        }
 
-      # --- validate pattern
-      eval { "" =~ /$pattern/ };
-      if ($@) {
-         die "\nError 015: Error in pattern patternfile '$file'!\n\n'$@'\n";
-      }
+        # --- validate pattern
+        eval { "" =~ /$pattern/ };
+        if ($@) {
+            die "\nError 015: Error in pattern patternfile '$file'!\n\n'$@'\n";
+        }
 
-      # --- end
-      push @pattern_list, $pattern;
-      print "patternfile: '$file'\npattern: $pattern\n" if $G_verbose_mode;
-   }
-   return $raw_pattern, @pattern_list;
+        # --- end
+        push @pattern_list, $pattern;
+        print "patternfile: '$file'\npattern: $pattern\n" if $G_verbose_mode;
+    }
+    return $raw_pattern, @pattern_list;
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -791,61 +823,61 @@ sub get_patterns {
 #---------------------------------------------------------------------------------------------------
 sub make_current_cksum_file {
 
-   # make a backup from cksum file of last fileset
-   `cp $G_config{cksumFileCurrStat} $G_config{cksumFileCurrStat}.orig`;
+    # make a backup from cksum file of last fileset
+    `cp $G_config{cksumFileCurrStat} $G_config{cksumFileCurrStat}.orig`;
 
-   # --- get cksum data form last fileset and write it in a cksum cache
-   my $file = $G_config{cksumFileCurrStat};
-   open FH, "$file" or die "Error 016: Error on open file '$file'!\n$!\n";
-   my ( %cksum_cache, $cksum, $filelen, $filename );
-   while (<FH>) {
-      chomp;
-      ( $cksum, $filelen, $filename ) = split / +/, $_, 4;
-      $cksum_cache{$filename} = "$cksum $filelen";
-   }
+    # --- get cksum data form last fileset and write it in a cksum cache
+    my $file = $G_config{cksumFileCurrStat};
+    open FH, "$file" or die "Error 016: Error on open file '$file'!\n$!\n";
+    my ( %cksum_cache, $cksum, $filelen, $filename );
+    while (<FH>) {
+        chomp;
+        ( $cksum, $filelen, $filename ) = split / +/, $_, 4;
+        $cksum_cache{$filename} = "$cksum $filelen";
+    }
 
-   # --- end
-   open FH, ">$file" or die "Error 017: Error on init file '$file'!\n$!\n";
-   close FH;
-   $file = $G_config{diffFileSet};
-   open FH, $file or die "Error 018: Error on open file '$file'!\n$!\n";
-   my $errflag = 0;
-   my ( $count_cksum, $count_cache ) = ( 0, 0 );
+    # --- end
+    open FH, ">$file" or die "Error 017: Error on init file '$file'!\n$!\n";
+    close FH;
+    $file = $G_config{diffFileSet};
+    open FH, $file or die "Error 018: Error on open file '$file'!\n$!\n";
+    my $errflag = 0;
+    my ( $count_cksum, $count_cache ) = ( 0, 0 );
 
-   #
-   while (<FH>) {
-      chomp;
-      s/\$/\\\$/g;    # $ mask
-      s/\s*$//s;      # delete \s characters
-      $filename = $_;
+    #
+    while (<FH>) {
+        chomp;
+        s/\$/\\\$/g;    # $ mask
+        s/\s*$//s;      # delete \s characters
+        $filename = $_;
 
-      # ??? is current file a plain file ???
-      if ( -f "$filename" ) {
+        # ??? is current file a plain file ???
+        if ( -f "$filename" ) {
 
-         # ??? exists a cksum in cksum cache ???
-         # yes: take cache entry
-         if ( exists( $cksum_cache{$filename} ) ) {
-            $count_cache++;
-            `echo "$cksum_cache{$filename} $filename" >> $G_config{cksumFileCurrStat} 2>&1`;
-         }
+            # ??? exists a cksum in cksum cache ???
+            # yes: take cache entry
+            if ( exists( $cksum_cache{$filename} ) ) {
+                $count_cache++;
+                `echo "$cksum_cache{$filename} $filename" >> $G_config{cksumFileCurrStat} 2>&1`;
+            }
 
-         # no: make a new cksum
-         else {
-            $count_cksum++;
-            `cksum "$_" >> $G_config{cksumFileCurrStat} 2>&1`;
-         }
+            # no: make a new cksum
+            else {
+                $count_cksum++;
+                `cksum "$_" >> $G_config{cksumFileCurrStat} 2>&1`;
+            }
 
-         # ??? errors in last cksum???
-         # yes: set flag 'some errors ocurred'
-         if ( $? != 0 ) {
-            $errflag = 1;
-         }
-      }
-   }
-   print "count_cksum:$count_cksum, count_cache:$count_cache\n"
-       if $G_verbose_mode;
-   warn "Error 030: Fehler bei cksum siehe $G_config{cksumFileCurrStat}.err"
-       if $errflag;
+            # ??? errors in last cksum???
+            # yes: set flag 'some errors ocurred'
+            if ( $? != 0 ) {
+                $errflag = 1;
+            }
+        }
+    }
+    print "count_cksum:$count_cksum, count_cache:$count_cache\n"
+        if $G_verbose_mode;
+    warn "Error 030: Fehler bei cksum siehe $G_config{cksumFileCurrStat}.err"
+        if $errflag;
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -866,57 +898,56 @@ sub make_current_cksum_file {
 # none
 #---------------------------------------------------------------------------------------------------
 sub find_new_and_changed_files {
-   my $file = $G_config{cksumFileCurrStat};
-   open( FH, $file )
-       or die "Error 019: Kann File $file nicht öffnen!\nUrsache:\n$!\n";
-   my @data_new_cksum = <FH>;
-   print "\n\nnew Files:\n\n";
-   my @changed_files;
+    my $file = $G_config{cksumFileCurrStat};
+    open( FH, $file )
+        or die "Error 019: Kann File $file nicht öffnen!\nUrsache:\n$!\n";
+    my @data_new_cksum = <FH>;
+    print "\n\nnew Files:\n\n";
+    my @changed_files;
 
-   # loop over cksum all current files to find out new & changed files
-   foreach (@data_new_cksum) {
-      my @new_file_cksum = split / +/, $_, 3;
-      my $is_new = 1;
-      my @old_file_cksum;
+    # loop over cksum all current files to find out new & changed files
+    foreach (@data_new_cksum) {
+        my @new_file_cksum = split / +/, $_, 3;
+        my $is_new = 1;
+        my @old_file_cksum;
 
-      # look in old entries to find out if exist file in last backup
-      # if not find file is new
-      foreach my $line_old (@G_data_old_cksum) {
-         @old_file_cksum = split / +/, $line_old, 3;
+        # look in old entries to find out if exist file in last backup
+        # if not find file is new
+        foreach my $line_old (@G_data_old_cksum) {
+            @old_file_cksum = split / +/, $line_old, 3;
 
-         # ??? file already exists in old cksum filelist ???
-         # yes: break search why file is old
-         if ( $new_file_cksum[2] eq $old_file_cksum[2] ) {
-            $is_new = 0;
-            last;
-         }
-      }
+            # ??? file already exists in old cksum filelist ???
+            # yes: break search why file is old
+            if ( $new_file_cksum[2] eq $old_file_cksum[2] ) {
+                $is_new = 0;
+                last;
+            }
+        }
 
-      # ??? file is new ???
-      if ($is_new) {
-         print "$new_file_cksum[2]";
-      }
-      else {
+        # ??? file is new ???
+        if ($is_new) {
+            print "$new_file_cksum[2]";
+        }
+        else {
 
-         # ??? cksum of a existing file has changed ???
-         # yes: write file in file changed list
-         if (
-            not(   $new_file_cksum[0] eq $old_file_cksum[0]
-               and $new_file_cksum[1] eq $old_file_cksum[1] )
-             )
-         {
-            push @changed_files, $new_file_cksum[2];
-         }
-      }
-   }
+            # ??? cksum of a existing file has changed ???
+            # yes: write file in file changed list
+            if (not(    $new_file_cksum[0] eq $old_file_cksum[0]
+                    and $new_file_cksum[1] eq $old_file_cksum[1] )
+                )
+            {
+                push @changed_files, $new_file_cksum[2];
+            }
+        }
+    }
 
-   # --- print out file changed list
-   print "\nchanged Files:\n\n";
-   foreach (@changed_files) {
-      print "$_";
-   }
+    # --- print out file changed list
+    print "\nchanged Files:\n\n";
+    foreach (@changed_files) {
+        print "$_";
+    }
 
-   # --- end
+    # --- end
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -938,46 +969,45 @@ sub find_new_and_changed_files {
 #---------------------------------------------------------------------------------------------------
 sub recover {
 
-   # extract data from base backup
-   doShCmd "tar xvzf $G_config{baseArchive} --ignore-failed-read 2>&1",
-       $G_verbose_mode, $G_noaction_mode;
+    # extract data from base backup
+    doShCmd "tar xvzf $G_config{baseArchive} --ignore-failed-read 2>&1", $G_verbose_mode,
+        $G_noaction_mode;
 
-   # take by default diffbackup filename configured in config file
-   my $diffBackupFile = $G_config{diffBackupFile};
+    # take by default diffbackup filename configured in config file
+    my $diffBackupFile = $G_config{diffBackupFile};
 
-   # ??? diffbackup file in config have a dynamic date string in filename
-   # yes: take as recover diffbackup file the latest archive
-   if ( $diffBackupFile =~ /yymmdd/ ) {
-      my $diffBackUpPattern = $G_config{diffBackupFile};
-      $diffBackUpPattern =~ s/yymmdd/[0-9][0-9][01][0-9][0-3][0-9]/;
-      my @files = sort split /\s/, `ls $diffBackUpPattern`;
-      $diffBackupFile = $files[$#files];
-   }
+    # ??? diffbackup file in config have a dynamic date string in filename
+    # yes: take as recover diffbackup file the latest archive
+    if ( $diffBackupFile =~ /yymmdd/ ) {
+        my $diffBackUpPattern = $G_config{diffBackupFile};
+        $diffBackUpPattern =~ s/yymmdd/[0-9][0-9][01][0-9][0-3][0-9]/;
+        my @files = sort split /\s/, `ls $diffBackUpPattern`;
+        $diffBackupFile = $files[$#files];
+    }
 
-   # extract data from diff backup
-   doShCmd "tar xvzf $diffBackupFile --ignore-failed-read 2>&1",
-       $G_verbose_mode, $G_noaction_mode;
+    # extract data from diff backup
+    doShCmd "tar xvzf $diffBackupFile --ignore-failed-read 2>&1", $G_verbose_mode, $G_noaction_mode;
 
-   # ??? is flag for removing old files set in config ???
-   if ( $G_config{rmOldFiles} eq 'y' ) {
-      my $rmFiles = $diffBackupFile . '.rmlist.txt';
+    # ??? is flag for removing old files set in config ???
+    if ( $G_config{rmOldFiles} eq 'y' ) {
+        my $rmFiles = $diffBackupFile . '.rmlist.txt';
 
-      # ??? exists rm Filelist to current diffbackup ???
-      if ( -e $rmFiles ) {
-         my $interactiv;
+        # ??? exists rm Filelist to current diffbackup ???
+        if ( -e $rmFiles ) {
+            my $interactiv;
 
-         # ??? is flag for interactiv removing old files set in config ???
-         if ( $G_config{rmInteractiv} eq 'y' ) {
-            $interactiv = '-i';
-         }
-         my $file = $rmFiles;
-         open( FILE, $file )
-             or die "Error 020: Kann File $file nicht öffnen!\nUrsache:\n$!\n";
-         foreach (<FILE>) {
-            `rm $interactiv $_`;
-         }
-      }
-   }
+            # ??? is flag for interactiv removing old files set in config ???
+            if ( $G_config{rmInteractiv} eq 'y' ) {
+                $interactiv = '-i';
+            }
+            my $file = $rmFiles;
+            open( FILE, $file )
+                or die "Error 020: Kann File $file nicht öffnen!\nUrsache:\n$!\n";
+            foreach (<FILE>) {
+                `rm $interactiv $_`;
+            }
+        }
+    }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -1004,20 +1034,20 @@ sub recover {
 #              STDERR only: doShCmd "tar xvzf BackupFile.tar 2>&1 1>/dev/null"
 #---------------------------------------------------------------------------------------------------
 sub doShCmd {
-   my ( $shCmd, $debug, $noaction ) = @_;
-   my $ret         = "";
-   my $verzeichnis = `pwd`;
-   $verzeichnis =~ s/\s*$//;
-   print "Directory:$verzeichnis\ndoShCmd:\n$shCmd\n\n" if $debug;
-   if ( !$noaction ) {
-      $ret = `$shCmd`;
-      my $status = $? >> 8;    # get nummeric command status
+    my ( $shCmd, $debug, $noaction ) = @_;
+    my $ret         = "";
+    my $verzeichnis = `pwd`;
+    $verzeichnis =~ s/\s*$//;
+    print "Directory:$verzeichnis\ndoShCmd:\n$shCmd\n\n" if $debug;
+    if ( !$noaction ) {
+        $ret = `$shCmd`;
+        my $status = $? >> 8;    # get nummeric command status
 
-      # ??? status != 0 -> command had a problem ???
-      # yes: print command output & die programm
-      if ($status) {
-         $ret = "" if ( !$ret );
-         die <<END;
+        # ??? status != 0 -> command had a problem ???
+        # yes: print command output & die programm
+        if ($status) {
+            $ret = "" if ( !$ret );
+            die <<END;
 Error 021: Error on exection shellcommand!!!
 
 commando:
@@ -1032,13 +1062,15 @@ commandostatus:
 Current directory: '$verzeichnis'
 
 END
-      }
-      return ( $status, $ret );
-   }
+        }
+        return ( $status, $ret );
+    }
 }
 
 sub usage {
-   print <<END;
+   my $exit_mode = shift || 'do_exit';
+   
+    print <<END;
 
 useage:
 
@@ -1051,23 +1083,27 @@ diffBackup.pl
 [-b, --backuponly]             -make a backup with the last determined differencefile
 [-t, --testexcl [patternfile]] -only test an exclude pattern
 [    --base [backupfile]]      -make a basebackup
-[    --ink             ]       -make a incremental backup
+[    --reusefileset [fileset]] -take an explicit Fileset, disable generate one
+[    --ink]                    -make a incremental backup
 [    --batch ]                 -no programmfeedback
 [-r  --recover]                -recover backup
 [-h, --help]                   -show help information
 [    --version]                -show programmversion
 
 END
-   exit 1;
+
+   if($exit_mode eq 'do_exit'){
+      exit 1;
+   }
 }
 
 END {
-   if ($G_verbose_mode) {
-      my $end_time = time();
-      my $ss       = ( $end_time - $G_start_time ) % 60;
-      my $mm       = ( $end_time - $G_start_time - $ss ) / 60;
-      print "\ndiffBackup.pl total running time $mm:$ss min\n";
-   }
+    if ($G_verbose_mode) {
+        my $end_time = time();
+        my $ss       = ( $end_time - $G_start_time ) % 60;
+        my $mm       = ( $end_time - $G_start_time - $ss ) / 60;
+        print "\ndiffBackup.pl total running time $mm:$ss min\n";
+    }
 }
 __END__
 
@@ -1124,9 +1160,20 @@ wieder hergestellt werden.
 
         --batch         keine interaktiven Rückfragen
 
-    -d  --diffonly      nur Filedifferenz zum Basefileset ermitteln
-    -r  --recover       (ist noch experimentell) Datensicherung wieder einspielen
+    -d, --diffonly      nur Filedifferenz zum Basefileset ermitteln
+    
+    -r, --recover       (ist noch experimentell) Datensicherung wieder einspielen
                         alle Backupoptionen werden ignoriert
+                        
+        --reusefileset [Datei]
+                        Option 'reusefileset' ermöglicht ein Fileset (z.B. vom letzten diff_backup Lauf) 
+                        als aktuelles Fileset zu verwenden. Damit muß das diff_backup.pl kein Fileset
+                        generieren. So es muß nicht aufwendig neu erstellt werden, was z.B. für den Test
+                        von Backup Patterns seht nützlich ist                 
+                        
+    -t, --testexcl [Datei]
+                        Teste die exclude Patterns in die "Datei" sind mit dem
+                        aktuellen Fileset von Diffbackup
 
     -h, --help          Hilfeinformationen ausgeben
 
