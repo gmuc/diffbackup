@@ -20,7 +20,7 @@ my $vDate='$Date$';
 $vDate=~s/^[^0-9]*(.+?)\s.*\$$/$1/;
 
 
-my $version = "2.2.0.beta2 ($vDate)";
+my $G_version = "2.2.0.beta2 ($vDate)";
 
 # --- end
 our (
@@ -130,7 +130,7 @@ sub init {
         'c|config=s', \$G_config_file,
         'v|verbose',
         'd|diffonly',
-        'version' => sub { print "\ndiffBackup.pl Version: $version\n\n"; exit },
+        'version' => sub { print "\ndiffBackup.pl Version: $G_version\n\n"; exit },
         'batch',
         'ink',
         'reusefileset:s', \$G_reuseFileset,
@@ -671,6 +671,10 @@ sub do_backup {
     my $err_tar_log     = "${backupFile}.err";
     my $content_tar_log = "${backupFile}.content.txt";
     print <<END;
+    
+diff_backup.pl $G_version
+
+Configfile:        $G_config_file
 
 Savefileset:       $G_config{diffFileSet}
 
