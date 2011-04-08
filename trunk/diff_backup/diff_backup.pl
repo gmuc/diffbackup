@@ -16,9 +16,8 @@ sub doShCmd;
 
 # --- define programm version
 
-my $vDate='$Date$';
-$vDate=~s/^[^0-9]*(.+?)\s.*\$$/$1/;
-
+my $vDate = '$Date$';
+$vDate =~ s/^[^0-9]*(.+?)\s.*\$$/$1/;
 
 my $G_version = "2.2.0.beta2 ($vDate)";
 
@@ -122,10 +121,10 @@ sub init {
     }
 
     my $use_help;
-    
+
     # todo: test von der cmd-Line aus
     # todo: Schreiben eines Tests
-    
+
     GetOptions(
         'c|config=s', \$G_config_file,
         'v|verbose',
@@ -139,12 +138,12 @@ sub init {
         't|testexcl:s', \$G_test_excl_file,      # for test exlude pattern
         'base:s',       \$G_base_backup_file,    # optional filename basebackup
         'b|backuponly',
-        'h|help|?', sub {$use_help = 1}
+        'h|help|?', sub { $use_help = 1 }
     );
-    
+
     $G_config_file = "$ENV{HOME}/.diffBackUp.conf"
         if ( !$G_config_file and -e "$ENV{HOME}/.diffBackUp.cfg" );
-        
+
     if ( !$G_config_file ) {
         if ( -e "/etc/diffBackUp.cfg" ) {
             $G_config_file = "/etc/diffBackUp.cfg";
@@ -154,7 +153,7 @@ sub init {
             usage();
         }
     }
-    
+
     my @gentime = localtime(time);
     $gentime[5] -= 100;
     $gentime[4]++;
@@ -162,13 +161,13 @@ sub init {
     $gentime[4] =~ s/^(.)$/0$1/;
     $gentime[3] =~ s/^(.)$/0$1/;
     $G_yyddmm = "$gentime[5]$gentime[4]$gentime[3]";
-    
-    if($use_help){
-       usage('not_exit');
-       
-       print "\nused config: $G_config_file\n";
-       
-       exit 1;
+
+    if ($use_help) {
+        usage('not_exit');
+
+        print "\nused config: $G_config_file\n";
+
+        exit 1;
     }
 }
 
@@ -720,10 +719,10 @@ END
             or die "Error 013: Open error file '$content_tar_log': $!\n";
         foreach (@lines) {
             my @a = split /\s+/, $_, 4;
-            printf FH "%s %15.15s %10.10d %s", $a[0], $a[1], $a[2], $a[3];
+            printf FH "%10.10d %s", $a[2], $a[3];
         }
         close FH;
-        doShCmd "sort -k3 -r $content_tar_log > $content_tar_log.sort", $G_verbose_mode,
+        doShCmd "sort -k1 -r $content_tar_log > $content_tar_log.sort", $G_verbose_mode,
             $G_noaction_mode;
         doShCmd "mv $content_tar_log.sort $content_tar_log", $G_verbose_mode, $G_noaction_mode;
 
@@ -733,11 +732,12 @@ END
 
     # ??? it's a base backup ???
     if ( $backupFile eq $G_config{baseBackupFile} ) {
-        print "\nBackupfile:\n" . `ls -l $backupFile` . "\n\n";
+        print "\nBackupfile:\n" . `ls -lh $backupFile` . "\n\n";
     }
     else {    # ??? commen backup ???
-        print "\nBackupfile:\n" . `ls -l $backupFile $G_config{baseBackupFile}` . "\n\n";
+        print "\nBackupfile:\n" . `ls -lh $backupFile $G_config{baseBackupFile}` . "\n\n";
     }
+
     print "\nFirst $head_lines largest entries in backup archiv:\n\n"
         . `head -$head_lines $content_tar_log` . "\n\n";
 }
@@ -1073,8 +1073,8 @@ END
 }
 
 sub usage {
-   my $exit_mode = shift || 'do_exit';
-   
+    my $exit_mode = shift || 'do_exit';
+
     print <<END;
 
 useage:
@@ -1097,9 +1097,9 @@ diffBackup.pl
 
 END
 
-   if($exit_mode eq 'do_exit'){
-      exit 1;
-   }
+    if ( $exit_mode eq 'do_exit' ) {
+        exit 1;
+    }
 }
 
 END {
