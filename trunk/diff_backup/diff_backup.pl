@@ -19,7 +19,7 @@ sub doShCmd;
 my $vDate = '$Date$';
 $vDate =~ s/^[^0-9]*(.+?)\s.*\$$/$1/;
 
-my $G_version = "2.2.0.beta2 ($vDate)";
+my $G_version = "2.2.0.beta8 ($vDate) ";
 
 # --- end
 our (
@@ -129,7 +129,7 @@ sub init {
         'c|config=s', \$G_config_file,
         'v|verbose',
         'd|diffonly',
-        'version' => sub { print "\ndiffBackup.pl Version: $G_version\n\n"; exit },
+        'version' => sub { print "\ndiff_backup.pl Version: $G_version\n\n"; exit },
         'batch',
         'ink',
         'reusefileset:s', \$G_reuseFileset,
@@ -730,16 +730,44 @@ END
     }
     my $head_lines = 20;
 
+    my $files;
+
     # ??? it's a base backup ???
     if ( $backupFile eq $G_config{baseBackupFile} ) {
-        print "\nBackupfile:\n" . `ls -lh $backupFile` . "\n\n";
+
+        $files = `ls -lh $backupFile`;
     }
     else {    # ??? commen backup ???
-        print "\nBackupfile:\n" . `ls -lh $backupFile $G_config{baseBackupFile}` . "\n\n";
+        $files = `ls -lh $backupFile $G_config{baseBackupFile}`;
     }
 
-    print "\nFirst $head_lines largest entries in backup archiv:\n\n"
-        . `head -$head_lines $content_tar_log` . "\n\n";
+    if ( defined $files ) {
+        print "\nBackupfile:\n";
+
+        my @file_list = split /\n/, $files;
+
+        foreach (@file_list) {
+            my @b = split / +/;
+            printf "%6.6s %s %s %s %s\n", $b[4], $b[5], $b[6], $b[7], $b[8];
+        }
+
+        print "\n\n";
+    }
+
+    my $largest = `head -$head_lines $content_tar_log`;
+
+    print "\nFirst $head_lines largest entries in backup archiv:\n\n";
+     
+    foreach my $file (split /\n/,$largest){
+      
+      my @a = split / +/, $file;
+      
+      my $ret = `ls -lh $a[3]`; 
+      my @b = split / +/, $ret;
+      print "$b[4] $a[3]\n";
+    }
+    
+    print "\n\n";
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -1079,7 +1107,7 @@ sub usage {
 
 useage:
 
-diffBackup.pl
+diff_backup.pl
 
 [-c, --config configFile]      -configurationfile
 [-v, --verbose]                -enable verbose mode
@@ -1107,37 +1135,37 @@ END {
         my $end_time = time();
         my $ss       = ( $end_time - $G_start_time ) % 60;
         my $mm       = ( $end_time - $G_start_time - $ss ) / 60;
-        print "\ndiffBackup.pl total running time $mm:$ss min\n";
+        print "\ndiff_backup.pl total running time $mm:$ss min\n";
     }
 }
 __END__
 
-grep "Error " diffBackup.pl | perl -n -e'/(Error +[0-9?]+)/; print ":$1:\n";' | sort
+grep "Error " didiff_backupl | perl -n -e'/(Error +[0-9?]+)/; print ":$1:\n";' | sort
 
 =pod
 
 =head1 Bezeichnung
 
- diffBackup.pl - Differenzbackup bzw. Basissicherung anlegen; Recovery durchführen
+ diff_backup.pl - Differenzbackup bzw. Basissicherung anlegen; Recovery durchführen
 
 =head1 Syntax
 
- diffBackup.pl -c Datei [-v] [-n] [-b] [-version] [-h] [-base [Datei]] [-r]
+ diff_backup.pl -c Datei [-v] [-n] [-b] [-version] [-h] [-base [Datei]] [-r]
 
 =head1 Beschreibung
 
-Basissicherung
+B<Basissicherung>
 
 Dabei werden alle Dateien des vordefinierten Bereichs gesichert und für diese ein cksum-File erstellt.
 
-Differenzsicherung
+B<Differenzsicherung>
 
 Dabei wird geprüft, welche Dateien sich im aktuellen Dateisystem 
 bezüglich der Basissicherung geändert haben bzw. welche hinzugekommen sind
 oder gelöscht wurden. Gelöschte Dateien werden in einer Datei mit der Endung ".rmlist.txt"
 hinterlegt.
 
-Sicherung wiederherstellen
+B<Sicherung wiederherstellen>
 
 Aus Basis- und Differenzsicherung sowie dem Löschprotokoll kann der Originaldatenbestand 
 wieder hergestellt werden.
@@ -1191,31 +1219,35 @@ als sicherungsrelevant definiert wurden.
 
 Um eine Basissicherung anzulegen sind folgende Arbeitsschritte notwendig:
 
-1) notwendige Parametrierung im Konfigurationsfile vornehmen
+1) notwendige Parametrierung im Konfigurationsfile vornehmen (Config lokalisieren mit "diff_backup.pl -v")
+
+In der Regel reicht die Änderung von "baseBackNr" und "backupBaseDate" aus.
+
+Prinzipiell gilt für die verwendeten Parameter:
 
 Pflichtparameter: baseBackNr backupName diffBackDir backUpBase backupBaseDate searchDirs
 optionale Parameter: exclPatt 
 
-2) diffBackup.pl mit folgenden Parametern starten
+2) diff_backup.pl mit folgenden Parametern starten
 
- diffBackup.pl -c Datei -base [Datei]
+ diff_backup.pl [-c Datei] -base [Datei]
 
- Wird der optionale Dateiname bei der Option "base" angegeben, erfolgt in diese Datei die
- Sicherung der definierten Files. Ansonsten definiert der Parameter "baseBackupFile"
- in der Konfigurationsdatei die Zieldatei der Sicherung.
+Wird der optionale Dateiname bei der Option "base" angegeben, erfolgt in diese Datei die
+Sicherung der definierten Files. Ansonsten definiert der Parameter "baseBackupFile"
+in der Konfigurationsdatei die Zieldatei der Sicherung.
 
- Wenn base-Datei definiert ist, wird dieser Name auch für die Definition des Names des
- aktuellen cksum-Protokoll verwendet. Dazu werden von dem Namen allen Endungen mit der
- Bezeichnung ".tgz", ".tar" entfernt und die Endung ".cksum" angehangen.
+Wenn base-Datei definiert ist, wird dieser Name auch für die Definition des Names des
+aktuellen cksum-Protokoll verwendet. Dazu werden von dem Namen allen Endungen mit der
+Bezeichnung ".tgz", ".tar" entfernt und die Endung ".cksum" angehangen.
 
- Bei der Basissicherung werden folgende Files angelegt:
- -cksum aller gesicherten Files; s. Parameter "cksumFileCurrStat"
- -Liste aller gesicherten Files; s. Parameter "diffFileSet"
- -Sicherungsarchiv; s. Parameter "backupFile" oder Argument der Option "base"
+Bei der Basissicherung werden folgende Files angelegt:
+-cksum aller gesicherten Files; s. Parameter "cksumFileCurrStat"
+-Liste aller gesicherten Files; s. Parameter "diffFileSet"
+-Sicherungsarchiv; s. Parameter "backupFile" oder Argument der Option "base"
 
- Existiert ein Sicherungsarchiv gleichen Namens schon, wird gefragt, ob sie überschrieben werden soll.
- Im Batchmodus gibt es keine solche Rückfrage sondern nur die Ausschrift, daß das Sicherungsarchiv
- überschrieben wurde.
+Existiert ein Sicherungsarchiv gleichen Namens schon, wird gefragt, ob sie überschrieben werden soll.
+Im Batchmodus gibt es keine solche Rückfrage sondern nur die Ausschrift, daß das Sicherungsarchiv
+überschrieben wurde.
 
 =head1 Anlegen einer Differenzsicherung
 
@@ -1223,8 +1255,8 @@ Eine Differenzsicherung ist die Sicherung aller Files in eine tgz-Archiv, die in
 als sicherungsrelevant definiert wurden. Eine Differenzsicherung bezieht sich immer auf eine Basissicherung.
 Es geht nur ein File in die Sicherung ein, wenn es:
 
- -neu ist, d.h. in der Basissicherung noch nicht vorhanden ist
- -geändert wurde, d.h. es ist zwar in der Basissicherung vorhanden, wurde aber inzwischen verändert
+-neu ist, d.h. in der Basissicherung noch nicht vorhanden ist
+-geändert wurde, d.h. es ist zwar in der Basissicherung vorhanden, wurde aber inzwischen verändert
 
 Mit der Differenzsicherung kann ein großer Datenbestand sehr platzsparend gesichert werden, wenn
 sich nur eine geringer Anteil der Daten wirklich in den Sicherungsintervallen ändert.
@@ -1235,9 +1267,9 @@ Um eine Basissicherung anzulegen sind folgende Arbeitsschritte notwendig:
 
 s.o. Basissicherung
 
-2) diffBackup.pl mit folgenden Parametern starten
+2) diff_backup.pl mit folgenden Parametern starten
 
- diffBackup.pl -c Datei -ink
+ diff_backup.pl -c Datei -ink
 
 Welche Files wirklich gesichert wurden, ist in dem File protokolliert, das beim
 Parameter "diffFileSet" hinterlegt wurde.
