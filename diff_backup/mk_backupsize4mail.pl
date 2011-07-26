@@ -19,7 +19,7 @@ $RCSVersion=~s/^[^0-9]*([0-9]+\.[0-9]+).*$/$1/;
 my $RCSDate='$Date$';
 $RCSDate=~s/^[^0-9]*(.+)\s*\$$/$1/;
 
-my $version = '1.0.0';
+my $version = '1.0.1';
 
 my ($log_file, $subject, $mail_adress, $G_debug);
 
@@ -34,6 +34,8 @@ GetOptions(
 	   'v|version'   => sub{print "\n$prog_name Version: $version ($RCSDate)\n\n"; exit},
 	   'h|help|?'    => \&usage,
 	  );
+
+$DB::single = 1;
 
 print "Args:\nsubject:'$subject'\nlog_file:'$log_file'\nmail_adress:'$mail_adress'\n\n" 
   if $G_debug;
@@ -65,17 +67,33 @@ sub main{
   open FH, $file 
     or die "$! err open file '$file'\n";
 
+  $DB::single = 1;
+
+  my $found;
   while (<FH>){
     chomp;
-    last if(/^Backupfile/);
+    if(/^Backupfile/){
+       $found = 1;
+       last;
+    }
   }    
 
+  if(not $found){
+    print "Pattern 'Backupfile' not found!\n" if $G_debug;
+    return;
+  }
+  
   my $line = <FH>; 
-  $line =~ /^\s*(\d+)(.) /;
+  $line =~ /^\s*(\d+\.\d+[MG]) /;
 
-  $subject .= " ($1 $2)";
+  if($1){
+    $subject .= " ($1)";
+  }
+  else{
+    $subject .= " (???)";
+  }
 
-  print "Size: $1 $2\nsubject: $subject\n" if $G_debug;
+  print "Size: $1\nsubject: $subject\n" if $G_debug;
 
   my $cmd = "cat $log_file | mail -s \"$subject\" $mail_adress";
   print "cmd: $cmd\n";
