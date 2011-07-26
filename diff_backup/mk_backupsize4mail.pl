@@ -122,4 +122,49 @@ END
 
   exit $exit_value;
 }
+# ------ Doku --------------------------------------------------------------------------------------
+# ------ Doku --------------------------------------------------------------------------------------
+# ------ Doku --------------------------------------------------------------------------------------
 
+__END__
+
+=pod
+
+=head1 NAME
+ 
+mk_backupsize4mail.pl -l input_log -s subject -m mail_adr
+ 
+ 
+=head1 VERSION
+ 
+1.0.1
+ 
+ 
+=head1 SYNOPSIS
+
+mk_backupsize4mail.pl -l /tmp/diffBackup.log -s "diffbackup -ink" -m me@web.com 
+  
+=head1 DESCRIPTION
+ 
+Ermittelt aus dem Logfile die Größe eines Backups und schickt mit dieser Angabe eine Statusmail.
+
+=head1 AUTHOR
+ 
+G. Mucha
+ 
+ 
+=head1 LICENCE AND COPYRIGHT
+ 
+Copyright (c) 2011 Gerd Mucha (gerd.devel@gmail.com). All rights reserved.
+ 
+Followed by whatever licence you wish to release it under. 
+For Perl code that is often just:
+ 
+This module is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself. See L<perlartistic>.
+ 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+
+=cut
