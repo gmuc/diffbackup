@@ -19,7 +19,7 @@ $RCSVersion=~s/^[^0-9]*([0-9]+\.[0-9]+).*$/$1/;
 my $RCSDate='$Date$';
 $RCSDate=~s/^[^0-9]*(.+)\s*\$$/$1/;
 
-my $version = '1.0.1';
+my $version = '1.0.2';
 
 my ($log_file, $subject, $mail_adress, $G_debug);
 
