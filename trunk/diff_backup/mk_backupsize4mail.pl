@@ -84,7 +84,7 @@ sub main{
   }
   
   my $line = <FH>; 
-  $line =~ /^\s*(\d+\.\d+[MG]) /;
+  $line =~ /^\s*(\d+(|\.\d+)[MG]) /;
 
   if($1){
     $subject .= " ($1)";
