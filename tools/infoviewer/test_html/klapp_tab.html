@@ -6,40 +6,44 @@
 
 table {
    width: 700px;
-   border-collapse: collapse;
    margin: 1em;
-  font                 : small/1.5 "Tahoma", "Bitstream Vera Sans", Verdana, Helvetica, sans-serif;
+   font: small/1.5 "Tahoma", "Bitstream Vera Sans", Verdana, Helvetica, sans-serif;
   }
 th {
    border: 1px solid #CCC;
-	padding               : 5px 10px;
-background-color: #EAEBEC;
+   border-width: 1px 0px 0px 1px;
+   padding               : 5px 10px;
+   background-color: #EAEBEC;
    }
 td {
-  border: 1px solid #CCC;
-	padding               : 5px 10px;
+   border: solid #CCC;
+   border-width: 1px 0px 0px 1px;
+   padding               : 5px 10px;
    }
 
 thead.header {
-   border: 1px solid #CCC;
+   border: solid #CCC;
+   border-width: 1px 0px 0px 1px;
 }
 
 tbody.body {
-   border: 2px solid #CCC;
+   border: solid #CCC;
+   border-width: 1px 0px 0px 1px;
    padding               : 5px 10px;
 }
 
 tbody {
-   height:550px; 
+   height:150px; 
    overflow:auto;
    overflow-x: hidden;
 }
 
 tr {
-background-color: #f7f7f7;
+   background-color: #f7f7f7;
    }
 table.test {
-   border: 2px solid #CCC;
+   border: solid #CCC;
+   border-width: 1px 0px 0px 1px;
    }
 table tr.odd  {
    background-color: #eee;
@@ -66,7 +70,7 @@ Klapptabellen
 
 <div id="itsthetable">
 
-<table class="aufklappen">
+<table class="aufklappen"  cellspacing="0" cellpadding="0" border="1">
 
 <thead class="aufklappen">
 	<tr>
