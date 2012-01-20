@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>Klapp Tabellen 1</title>
+<title>Klapp Tabellen 3</title>
 
 <style type="text/css">
 
@@ -75,7 +75,8 @@ Klapptabellen
 <thead class="aufklappen">
 	<tr>
 		<th scope="col" style="width:20px;">Nr.</th>
-		<th scope="col" style="width:200px;">Interpret/Gruppe11</th>
+		<th scope="col" style="width:0px;">&nbsp;</th>
+		<th scope="col" style="width:200px; border-left-width: 0px;">Interpret/Gruppe11</th>
 		<th scope="col" style="width:200px;">Titel</th>
 		<th scope="col" style="width:70px;">Bewertung</th>
 		<th scope="col" style="width:70px;">ASIN</th>
@@ -84,7 +85,8 @@ Klapptabellen
 <tbody>
 <tr>
    <th id="r100" scope="row">1</th>
-	<td>Depeche Mode</td>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">Depeche Mode</td>
 	<td>Sounds of the Universe</td>
 	<td>2</td>
 	<td>B0001</td>
@@ -92,57 +94,85 @@ Klapptabellen
 
 <tr class="odd">
    <th id="r100" scope="row">2</th>
-	<td>Pet Shop Boys</td>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">Pet Shop Boys</td>
 	<td>Yes</td>
 	<td>2,5</td>
 	<td>B0002</td>
 </tr>
-
-<tr>
-   <th id="r100" scope="row">1</th>
-	<td>Depeche Mode</td>
-	<td>Sounds of the Universe</td>
-	<td>2</td>
-	<td>B0001</td>
-</tr>
-
-<tr class="odd">
-   <th id="r100" scope="row">2</th>
-	<td>Pet Shop Boys</td>
-	<td>Yes</td>
-	<td>2,5</td>
-	<td>B0002</td>
-</tr>
-
 <tr>
    <th id="r100" scope="row">3</th>
-	<td>U2</td>
+	<td style="padding: 0px 0px;" align="right">
+	<a href="#" onclick="ids = new Array('t01','t02'); hide_show_lines('i01', ids);">
+		<img id="i01" src="arrow_down_24x24.png" style="border-width:0px; width:10px;height:10px;borderWidth:0px;marginRight:0px;">
+	</a>
+	</td>
+	<td style="border-left-width: 0px;">Depeche Mode4</td>
+
+	<td>Sounds of the Universe</td>
+	<td>2</td>
+	<td>B0001</td>
+</tr>
+
+<tr class="odd" id="t01" style="display:none">
+   <th id="r100" scope="row">4</th>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">Pet Shop Boys</td>
+	<td>Yes</td>
+	<td>2,5</td>
+	<td>B0002</td>
+</tr>
+
+<tr id="t02" style="display:none">
+   <th id="r100" scope="row">5</th>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">U2</td>
 	<td>No Line on ther Horizon</td>
 	<td>1</td>
 	<td>B0003</td>
 </tr>
 
 <tr class="odd">
-   <th id="r100" scope="row">4</th>
-	<td>Silbermond</td>
+   <th id="r100" scope="row">6</th>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">Silbermond</td>
 	<td>Nichts passiert</td>
 	<td>2,5</td>
 	<td>B0004</td>
 </tr>
 
 <tr>
-   <th id="r100" scope="row">5</th>
-	<td>Pink</td>
+   <th id="r100" scope="row">7</th>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">Pink</td>
 	<td>Funhouse</td>
 	<td>1,5</td>
 	<td>B0005</td>
 </tr>
+<tr class="odd">
+   <th id="r100" scope="row">8</th>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">Silbermond</td>
+	<td>Nichts passiert</td>
+	<td>2,5</td>
+	<td>B0004</td>
+</tr>
+
+<tr>
+   <th id="r100" scope="row">9</th>
+	<td>&nbsp;</td>
+	<td style="border-left-width: 0px;">Pink</td>
+	<td>Funhouse</td>
+	<td>1,5</td>
+	<td>B0005</td>
+</tr>
+
 </tbody>
 
 <tfoot class="aufklappen">
 	<tr>
 		<th scope="row">Insgesamt</th>
-		<Td colspan=4>5 Empfehlungen</td>
+		<Td colspan=5>5 Empfehlungen</td>
 	</tr>
 </tfoot>
 
@@ -221,6 +251,29 @@ if(table_node[0] != null){
 			linkBild.src=aufklappenBild;
 		}
 	}
+}
+
+function hide_show_lines(image_id, col_ids){
+   //alert("image_id:" + image_id + " col_ids:" + col_ids + " col_ids.length:" + col_ids.length);
+
+   var my_node=document.getElementById(image_id);
+
+   if(my_node.src.indexOf(zuklappenBild)==-1){
+	my_node.src=zuklappenBild;
+   }
+   else{
+	my_node.src=aufklappenBild;
+   }
+
+   for (var i = 0; i < col_ids.length; ++i){
+
+      var my_node=document.getElementById(col_ids[i]);
+
+      //alert("my_node:" + my_node + "my_node.style.display:" + my_node.style.display + " col_ids[i]:" + col_ids[i]);
+
+      my_node.style.display=my_node.style.display=='none'?'':'none';
+   }
+ 
 }
 
 </script>
