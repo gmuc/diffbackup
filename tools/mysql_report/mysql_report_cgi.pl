@@ -3,6 +3,8 @@
 use strict;
 use warnings;
 
+my $version = '0.1';
+
 use CGI;
 
 my $page  = new CGI;
