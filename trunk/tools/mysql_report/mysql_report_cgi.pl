@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-my $version = '0.1';
+my $version = '0.1test';
 
 use CGI;
 
@@ -18,7 +18,6 @@ my $file = '/tmp/test.cgi_data'; # -- test --
 # sichern
 #open(FH,">$file") or die "open >$file Error!\n$!"; # -- test --
 #$page->save(*FH); # -- test --
-
 
 print $page->header('text/html');
 
@@ -63,6 +62,9 @@ my $tab_style=<<END;
             }
 
             table.qform td { border: 0px; }
+            table.qform tr:nth-child(even) {
+                background-color: #eee;
+            }
 
 </style>
 END
@@ -75,16 +77,17 @@ my %connect = (
 my %script = (
 	      sele_regio_reports => { 
 				     pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_regio_reports.sql',
-				     titel => 'Liste der aktuellen Regionalwetterberichte'
+				     titel => 'Liste der aktuellen Regionalwetterberichte',
 
 				    },
 
 	      sele_single_regio_report => { 
-					   pfad =>' /home/mucha/idea/wetter-trunk/database/reports/sele_single_regio_report.sql',
+					   pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_single_regio_report.sql',
 					   titel => 'Inhalt einzelner Regionalwetterbericht',
+					   # IDEE: Felder help, default (Defaultwert)
 					   parameter => {
-							 valid_from => { name => "Validierungszeit" }, 
-							 basetype => { name => "Regions ID" },
+							 valid_from => { name => "Validierungszeit (yyyy-mm-dd hh24:mi:ss)" }, 
+							 basetype => { name => "Berichtstyp" },
 							},
 					  }
 	     );
@@ -113,6 +116,7 @@ my %mysql_param_values;
 my $mysql_param_data = '';
 my $param_substitution = '';
 
+# ??? Sind zu der Abfrage Queryparameter möglich ???
 if($parameter){
   foreach my $mysql_param_name ( keys $parameter ){
 
@@ -188,13 +192,33 @@ print $page->hidden(
 		    -default   => $script_name
 		   );
 
+$DB::single=1;
+
+if($parameter){
+
+  foreach my $field_code (keys $parameter){
+    my $field_name = $parameter->{$field_code}->{name};
+
+    print $page->Tr(
+		    $page->td( $field_name ),
+		    $page->td(
+			      $page->textfield(
+					       -name    => $field_code,
+					       -size    => 50
+					      )
+			     )
+		   ) . "\n";
+
+  }
+}
+
 print $page->Tr(
 		$page->td(''),
 		$page->td(
 			  $page->submit(
 					-name     => 'submit_form',
 					-value    => 'Suche starten',
-
+					
 					#        -onsubmit => 'javascript: validate_form()',
 				       )
 			 )
@@ -210,6 +234,8 @@ if( $page->param('db') ){
   my $cmd = "mysql $connect{ $db_name } -A $param_substitution -H < $script{ $script_name }{ pfad }";
 
   my $ret='';
+
+  $DB::single = 1;
 
   $ret = `$cmd`;
 
