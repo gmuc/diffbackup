@@ -1,0 +1,65 @@
+{
+ "connect-list":{
+		"local_wetter": "-hhost1 -Ddb1 -uuser1 -ppassword1",
+		"devel-koorin": "-hhost2 -Ddb2 -uuser2 -ppassword2",
+		"qs-koorin": "-hhost3 -Ddb3 -uuser3 -ppassword3"
+ },
+
+ "script-list": {
+	"sele_regio_reports": {
+		"path": "/home/user/sele_reports.sql",
+		"title": "Liste der aktuellen Regionalwetterberichte",
+		"default_db": "db1",
+
+		"db_list": {
+			"db1": "devel DB" ,
+			"db2": "qs DB" 
+		}
+	},
+
+	"sele_single_regio_report": {
+		"path": "/home/user/sele_single_report.sql",
+		"title": "Inhalt einzelner Regionalwetterbericht",
+		"default_db": "db1",
+
+		"db_list": {
+			"db1": "devel DB" ,
+			"db2": "qs DB" 
+		},
+
+		"parameter": {
+			"valid_from": {
+				"label": "Validierungszeit (yyyy-mm-dd hh24:mi:ss)"
+			},
+
+			"basetype": {
+				"label": "Berichtstyp (z.B. 3002)"
+			}
+		}
+		
+	},
+
+	"select_svn_log": {
+		"path": "/home/user/select_svn_log.sql",
+		"title": "SVN Log",
+		"default_db": "db3",
+
+		"db_list": {
+			"local_wetter": "Lokale DB" 
+		},
+
+		"parameter": {
+			"autor": {
+				"label": "Autor der Version1",
+				"default": "%"
+			},
+
+			"rev": {
+				"label": "SVN Revision",
+				"default": "%"
+			}
+		}
+	}
+  }
+
+}
