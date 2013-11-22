@@ -1,30 +1,178 @@
 #!/usr/bin/perl
 
+# ------------------------------------------
+# $URL: https://svn.br.de/repos/br-wetter-dev/trunk/WetterImports/WetterDB/stammdaten/upd_stations_filter_Europa.sql $
+# $Revision: 13017 $                                        
+# $Date: 2011-07-29 14:08:50 +0200 (Fr, 29 Jul 2011) $                         
+# $Author: muchag $                                                                            
+# ------------------------------------------
+
 use strict;
 use warnings;
 
 my $version = '0.1test';
+my $G_programm = 'mysql_report_cgi.pl';
 
 use CGI;
+use JSON;
 
-my $page  = new CGI;
+my $G_config_file = '/etc/mysql_report_cfg.json';
 
-my $file = '/tmp/test.cgi_data'; # -- test --
+my $G_page  = new CGI;
 
-# wiederherstellen
-#open(FH,$file) or die "open >$file Error!\n$!"; # -- test --
-#$page = new CGI(*FH); # -- test --
+print $G_page->header('text/html');
 
-# sichern
-#open(FH,">$file") or die "open >$file Error!\n$!"; # -- test --
-#$page->save(*FH); # -- test --
+my $G_config = get_json_config( $G_config_file );
 
-print $page->header('text/html');
+if(!$G_config){
+  print $G_page->start_html;
+
+  print "Error on read configuration '$G_config_file'";
+
+  print $G_page->end_html;
+  exit;
+}
+
+my ($G_script_config, $G_script_name);
+
+my $G_connect_list = $G_config->{ 'connect-list' };
+
+main();
+
+# --------------------------------------- END MAIN -------------------------------------------------
+# --------------------------------------- END MAIN -------------------------------------------------
+# --------------------------------------- END MAIN -------------------------------------------------
+
+sub main{
+
+  save_restore_cgi();
+
+  my $tab_style = get_tab_style();
+
+  $DB::single = 1;
+
+  get_script_name_from_param();
+
+  $G_script_config = $G_config->{ 'script-list' }->{ $G_script_name };
+
+  my $db_name = get_db_name_from_param();
+
+  my $parameter = $G_script_config->{ parameter };
+
+  my ($param_substitution, %mysql_param_values) = prepare_parameter($parameter);
 
 
-my $tab_style=<<END;
+  # --- start generate html ------------------------------------------------------------------------
+
+  print $G_page->start_html;
+
+  print $tab_style;
+
+  print "<div class=\"qform\">\n";
+
+  print "<b>$G_script_config->{title}</b>\n<br><br>\n";
+
+  print $G_page->start_form(
+			  -name    => 'MySQL Report',
+			  -method  => 'PUT',
+			  -enctype => &CGI::URL_ENCODED,
+			  -action => '/cgi-bin/mysql-report/mysql_report_cgi.pl', # Defaults to 
+			  -style => 'border: 0px' ,
+			 ) . "\n";
+
+
+  $DB::single = 1;
+
+  print make_query_param_form( \%mysql_param_values, $parameter, $db_name );
+
+  my $cmd = "mysql $G_connect_list->{ $db_name } -A $param_substitution -H < $G_script_config->{ path }";
+
+  $DB::single = 1;
+  
+  my $ret = `$cmd`;
+  my $status = $? >> 8;
+
+  if($status != 0){
+     print "Error on database access! See httpd errorlog!";
+
+     die "Error '$status' on execution command '$cmd' Output:$ret Systemerror:$!\n";
+  }
+
+  print $ret;
+
+  print $G_page->end_html;
+}
+
+
+sub make_query_param_form{
+  my ( $mysql_param_values, $parameter, $db_name )= @_; 
+
+  
+  my $db = $G_script_config->{ db_list };
+
+  my @values = keys %{ $db }; 
+  
+  my $labels = $db;
+
+  my $form = $G_page->start_table( {-class => 'qform'} ) . "\n";
+
+  $form .= $G_page->Tr(
+		  $G_page->td('Datenbank:'),
+		  $G_page->td(
+			    $G_page->popup_menu(
+					      -name    => 'db',
+					      -values  => \@values,
+					      -labels  => $labels,
+					      -default => $db_name
+					     )
+			   )
+		 ) . "\n";
+  
+  $form .= $G_page->hidden(
+		      -name      => 'script',
+		      -default   => $G_script_name
+		     );
+
+  if($parameter){
+
+    foreach my $field_code (keys $parameter){
+      my $field_name = $parameter->{$field_code}->{label};
+
+      $form .= $G_page->Tr(
+		      $G_page->td( $field_name ),
+		      $G_page->td(
+				$G_page->textfield(
+						 -name    => $field_code,
+						 -size    => 50,
+						 -value   => $mysql_param_values->{ $field_code },
+						)
+			       )
+		     ) . "\n";
+    }
+  }
+
+  $form .= $G_page->Tr(
+		  $G_page->td(''),
+		  $G_page->td(
+			    $G_page->submit(
+					  -name     => 'submit_form',
+					  -value    => 'Start search',
+					  
+					  #        -onsubmit => 'javascript: validate_form()',
+					 )
+			   )
+		 ) . "\n";
+
+  $form .= $G_page->end_table . "\n";
+
+  $form .= $G_page->end_form . "\n<br><br>\n";
+
+  return $form;
+}
+
+sub get_tab_style{
+  my $tab_style=<<END;
 <style>
-
 
             body {
                 font-family:Arial, Helvetica, sans-serif;
@@ -47,7 +195,7 @@ my $tab_style=<<END;
             
             td, th {
                 padding:6px 12px;
-                text-align:left;
+                text-align:left; word-wrap: break-word; max-width: 220px;
             }
 			
 			td {
@@ -61,185 +209,178 @@ my $tab_style=<<END;
                 border: 1px solid #000;
             }
 
-            table.qform td { border: 0px; }
+            table.qform td { border: 0px; width: 400px }
             table.qform tr:nth-child(even) {
-                background-color: #eee;
+                background-color: #fff; 
+            }
+            table.qform tr:nth-child(odd) {
+                background-color: #fff; 
             }
 
 </style>
 END
 
-my %connect = ( 
-	       devel => '-hdb-devel-sin-1.mm.br.de -Dwetter_koorin -uwetter_koorin -pwEtTer5',
-	       qs    => '-hdb-qs-sin-2.mm.br.de -Dwetter_koorin -uwetter_koorin -pwEtTer5'
-);
-
-my %script = (
-	      sele_regio_reports => { 
-				     pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_regio_reports.sql',
-				     titel => 'Liste der aktuellen Regionalwetterberichte',
-
-				    },
-
-	      sele_single_regio_report => { 
-					   pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_single_regio_report.sql',
-					   titel => 'Inhalt einzelner Regionalwetterbericht',
-					   # IDEE: Felder help, default (Defaultwert)
-					   parameter => {
-							 valid_from => { name => "Validierungszeit (yyyy-mm-dd hh24:mi:ss)" }, 
-							 basetype => { name => "Berichtstyp" },
-							},
-					  }
-	     );
-	      
-$DB::single = 1;
-
-my $db_name = $page->param('db') || 'devel';
-
-if(! exists $connect{$db_name} ){
-  print "Ungültiger DB Name '$db_name'!";
-  print $page->end_html;
-  exit;
+  return $tab_style;
 }
 
-my $script_name = $page->param('script');
+sub get_json_config{
+   my $config_file = shift;
 
-if(! exists $script{$script_name} ){
-  print "Ungültiger Script Name '$script_name'!";
-  print $page->end_html;
-  exit;
-}
+   $DB::single = 1;
 
-my $parameter = $script{ $script_name }{ parameter };
+   open FH,$config_file
+     or 
+       die "err open '$config_file' $?\n";
 
-my %mysql_param_values;
-my $mysql_param_data = '';
-my $param_substitution = '';
+   undef $/;
+   my $data = <FH>;
+   $/ = "\n";
 
-# ??? Sind zu der Abfrage Queryparameter möglich ???
-if($parameter){
-  foreach my $mysql_param_name ( keys $parameter ){
+   my $config_data;
 
-    my $param_value = $page->param( $mysql_param_name );
+   eval {
+     $config_data = decode_json($data);
+     1;
+   } or do {
+     my $e = $@;
+     warn "JASON Parse-Error: '$config_file' $e\n";
+     $config_data = '';
+   };
 
-    if( !$param_value ){
-      print "Fehler: Parameter '$mysql_param_name' hat keinen Wert!<br>";
-      print $page->end_html;
-      exit;
+   return $config_data;
+ }
+
+sub prepare_parameter{
+  my $parameter = shift;
+
+  my %mysql_param_values;
+  my $mysql_param_data = '';
+  my $param_substitution = '';
+
+  # ??? Sind zu der Abfrage Queryparameter möglich ???
+  if($parameter){
+    foreach my $mysql_param_name ( keys $parameter ){
+
+      my $param_value = $G_page->param( $mysql_param_name );
+
+      my $default_value = $parameter->{ $mysql_param_name }->{ default };
+
+      if( !$param_value and $default_value ){
+	$param_value = $default_value;
+      }
+
+      $mysql_param_values{ $mysql_param_name } = $param_value;
+
+      $mysql_param_data .= "set \@$mysql_param_name=\"$param_value\"; ";
+
     }
 
-    $mysql_param_values{ $mysql_param_name } = $param_value;
+    $param_substitution = $mysql_param_data . " source  $G_script_config->{path};";
 
-    $mysql_param_data .= "set \@$mysql_param_name=\"$param_value\"; ";
-
+    if($param_substitution){
+      $param_substitution = "-e'$param_substitution'";
+    }
   }
 
-  $param_substitution = $mysql_param_data . " source  $script{ $script_name }{ pfad };";
+  return $param_substitution, %mysql_param_values;
+}
 
-  if($param_substitution){
-    $param_substitution = "-e'$param_substitution'";
+sub get_db_name_from_param{
+
+  my $db_name = $G_page->param('db') || $G_script_config->{ 'default_db' };
+
+  if(! exists $G_connect_list->{ $db_name } ){
+    print "Ungültiger DB Name '$db_name'!";
+    print $G_page->end_html;
+    exit;
   }
+
+  return $db_name;
 }
 
 
-print $page->start_html;
+sub get_script_name_from_param{
+  $G_script_name = $G_page->param( 'script' );
 
-#print $page->start_html(-head=>=>meta({-http_equiv => 'Content-Type', -content    => 'text/html'}));
-
-print $tab_style;
-
-print "<div class=\"qform\">\n";
-
-print "<b>$script{ $script_name }{ titel }</b>\n<br><br>\n";
-
-print $page->start_form(
-        -name    => 'MySQL Report',
-        -method  => 'PUT',
-        -enctype => &CGI::URL_ENCODED,
-#        -onsubmit => 'return javascript:validation_function()',
-        -action => '/cgi-bin/mysql-report/mysql_report_cgi.pl', # Defaults to 
-                                                 # the current program
-        -style => 'border: 0px' ,
-    ) . "\n";
-
-my @values = ( 
-	      'devel', 
-	      'qs', 
-#	      'live' 
-	     );
-
-my $labels = {
-	      'devel' => 'Devel', 
-	      'qs' => 'QS', 
-#	      'live' => 'Live'
-	     };
-
-print $page->start_table( {-class => 'qform'} ) . "\n";
-print $page->Tr(
-		$page->td('Datenbank:'),
-		$page->td(
-			  $page->popup_menu(
-					    -name    => 'db',
-					    -values  => \@values,
-					    -labels  => $labels,
-					    -default => $db_name
-					   )
-			 )
-	       ) . "\n";
-
-print $page->hidden(
-		    -name      => 'script',
-		    -default   => $script_name
-		   );
-
-$DB::single=1;
-
-if($parameter){
-
-  foreach my $field_code (keys $parameter){
-    my $field_name = $parameter->{$field_code}->{name};
-
-    print $page->Tr(
-		    $page->td( $field_name ),
-		    $page->td(
-			      $page->textfield(
-					       -name    => $field_code,
-					       -size    => 50
-					      )
-			     )
-		   ) . "\n";
-
+  if(! exists $G_config->{ 'script-list' }->{ $G_script_name } ){
+    print "Ungültiger Script Name '$G_script_name'!";
+    print $G_page->end_html;
+    exit;
   }
 }
 
-print $page->Tr(
-		$page->td(''),
-		$page->td(
-			  $page->submit(
-					-name     => 'submit_form',
-					-value    => 'Suche starten',
-					
-					#        -onsubmit => 'javascript: validate_form()',
-				       )
-			 )
-	       ) . "\n";
+sub save_restore_cgi{
+  my $file = '/tmp/test.cgi_data'; # -- test --
 
-print $page->end_table . "\n";
+  # wiederherstellen
+  #open(FH,$file) or die "open >$file Error!\n$!"; # -- test --
+  #$G_page = new CGI(*FH); # -- test --
 
-print $page->end_form . "\n<br><br>\n";
-
-print "</div>\n\n";
-
-if( $page->param('db') ){
-  my $cmd = "mysql $connect{ $db_name } -A $param_substitution -H < $script{ $script_name }{ pfad }";
-
-  my $ret='';
-
-  $DB::single = 1;
-
-  $ret = `$cmd`;
-
-  print $ret;
+  # sichern
+  #open(FH,">$file") or die "open >$file Error!\n$!"; # -- test --
+  #$G_page->save(*FH); # -- test --
 }
 
-print $page->end_html;
+#   my %connect = ( 
+# 		 'local_wetter' => '-hlocalhost -Dwetter_koorin -uwikiuser -pmysql1234',
+		 
+# 		 'devel-koorin' => '-hdb-devel-sin-1.mm.br.de -Dwetter_koorin -uwetter_koorin -pwEtTer5',
+
+# 		 'qs-koorin'    => '-hdb-qs-sin-2.mm.br.de -Dwetter_koorin -uwetter_koorin -pwEtTer5'
+# 		);
+
+#   my %script = (
+# 		sele_regio_reports => { 
+# 				       db => { 'devel-koorin' => 'devel DB koorin', 'qs-koorin' => 'qs DB koorin' },
+# 				       pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_regio_reports.sql',
+# 				       titel => 'Liste der aktuellen Regionalwetterberichte',
+
+# 				      },
+
+# 		sele_single_regio_report => { 
+# 					     pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_single_regio_report.sql',
+# 					     titel => 'Inhalt einzelner Regionalwetterbericht',
+# 					     # IDEE: Felder help, default (Defaultwert)
+# 					     db => { 'devel-koorin' => 'devel DB koorin', 'qs-koorin' => 'qs DB koorin' },
+# 					     parameter => {
+# 							   valid_from => { name => "Validierungszeit (yyyy-mm-dd hh24:mi:ss)" }, 
+# 							   basetype => { name => "Berichtstyp" },
+# 							  },
+# 					    },
+# 		select_svn_logt => { 
+# 				    pfad  => '/home/mucha/pj/subversion/svnlog/select_svn_log.sql',
+# 				    titel => 'SVN Log Wetter',
+# 				    db    => { 'local_wetter' => 'Lokale Wetter DB' },
+# 				    # IDEE: Felder help, default (Defaultwert)
+# 				    parameter => {
+# 						  autor => { name => "Autor der Version", default => '%' },
+# 						  rev => { name => "SVN Revision", default => '%' },
+# 						 },
+# 				   }
+# 	       );
+	      
+__END__
+
+=pod
+
+=head1 Bezeichnung
+
+ mysql_report_cgi.pl - Report von MySQL Abfragen
+
+=head1 Syntax
+
+ diff_backup.pl -c Datei [-v] [-n] [-b] [-version] [-h] [-base [Datei]] [-r]
+
+=head1 Beschreibung
+
+Mittels einer JSON Konfigurationsdatei können SQL Abfragen über den WEBServer gestartet werden.
+
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2013 by G. Mucha
+
+This code is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
+
+=cut
