@@ -24,7 +24,7 @@ print $G_page->header('text/html');
 
 my $G_config = get_json_config( $G_config_file );
 
-if(!$G_config){
+if( !$G_config ){
   print $G_page->start_html;
 
   print "Error on read configuration '$G_config_file'";
@@ -85,7 +85,15 @@ sub main{
 
   print make_query_param_form( \%mysql_param_values, $parameter, $db_name );
 
-  my $cmd = "mysql $G_connect_list->{ $db_name } -A $param_substitution -H < $G_script_config->{ path }";
+  my $mysql_debug = 1;
+
+  my $my_sql_arg = '';
+  if( $G_page->param( 'mysql_debug' ) eq 'true' ){
+    $my_sql_arg = '-v';
+  }
+
+  # mysql -v gibt die Parameter und das SQL aus !!! sehr hilfreich für das Debugging !!!
+  my $cmd = "mysql $my_sql_arg $G_connect_list->{ $db_name } -A $param_substitution -H < $G_script_config->{ path }";
 
   $DB::single = 1;
   
@@ -96,6 +104,10 @@ sub main{
      print "Error on database access! See httpd errorlog!";
 
      die "Error '$status' on execution command '$cmd' Output:$ret Systemerror:$!\n";
+  }
+
+  if( $G_page->param( 'mysql_debug' ) eq 'true' ){
+    $ret =~ s/--------------\n/<br>--------------<br>/sg;
   }
 
   print $ret;
