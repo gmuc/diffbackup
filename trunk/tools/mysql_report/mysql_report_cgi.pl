@@ -145,21 +145,46 @@ sub make_query_param_form{
 		      -default   => $G_script_name
 		     );
 
+  $DB::single = 1;
+
   if($parameter){
 
     foreach my $field_code (keys $parameter){
       my $field_name = $parameter->{$field_code}->{label};
+      my $field_type = $parameter->{$field_code}->{type};
+
+      my $form_element;
+
+      if( $field_type eq 'popup' ){
+	my $data = $parameter->{ $field_code }->{ data };
+	my $default = $parameter->{ $field_code }->{ default };
+
+	my ( @values, %labels );
+	foreach my $value ( sort keys %{ $data } ){
+	  push @values, $value;
+	  $labels{ $value } = $data->{ $value };
+	}
+
+	$form_element = $G_page->popup_menu(
+				     -name    => $field_code,
+				     -values  => \@values,
+				     -labels  => \%labels,
+				     -default => $default
+				    );
+      }
+      else{
+	$form_element = $G_page->textfield(
+					   -name    => $field_code,
+					   -size    => 50,
+					   -value   => $mysql_param_values->{ $field_code },
+					  );
+      }
 
       $form .= $G_page->Tr(
-		      $G_page->td( $field_name ),
-		      $G_page->td(
-				$G_page->textfield(
-						 -name    => $field_code,
-						 -size    => 50,
-						 -value   => $mysql_param_values->{ $field_code },
-						)
-			       )
-		     ) . "\n";
+			   $G_page->td( $field_name ),
+			   $G_page->td( $form_element )
+			  ) . "\n";
+
     }
   }
 
