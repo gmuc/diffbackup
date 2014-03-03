@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 
 # ------------------------------------------
-# $URL: https://svn.br.de/repos/br-wetter-dev/trunk/WetterImports/WetterDB/stammdaten/upd_stations_filter_Europa.sql $
-# $Revision: 13017 $                                        
-# $Date: 2011-07-29 14:08:50 +0200 (Fr, 29 Jul 2011) $                         
-# $Author: muchag $                                                                            
+# $URL$
+# $Revision$                                        
+# $Date$                         
+# $Author$                                                                            
 # ------------------------------------------
 
 use strict;
