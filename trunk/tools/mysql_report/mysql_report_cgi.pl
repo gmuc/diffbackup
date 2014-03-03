@@ -15,6 +15,7 @@ my $G_programm = 'mysql_report_cgi.pl';
 
 use CGI;
 use JSON;
+use Encode;
 
 my $G_config_file = '/etc/mysql_report_cfg.json';
 
@@ -33,7 +34,7 @@ if( !$G_config ){
   exit;
 }
 
-my ($G_script_config, $G_script_name);
+my ($G_script_config, $G_script_name, $G_mysql_debug);
 
 my $G_connect_list = $G_config->{ 'connect-list' };
 
@@ -45,7 +46,8 @@ main();
 
 sub main{
 
-  save_restore_cgi();
+  # w = wiederherstellen, s = sichern
+  save_restore_cgi('');
 
   my $tab_style = get_tab_style();
 
@@ -57,10 +59,21 @@ sub main{
 
   my $db_name = get_db_name_from_param();
 
+  my $sql_limit = $G_page->param( 'sql_limit' ) || 2000;
+
+  my $sql_limit_cfg = $G_script_config->{ show_sql_limit };
+
   my $parameter = $G_script_config->{ parameter };
 
-  my ($param_substitution, %mysql_param_values) = prepare_parameter($parameter);
+  my $mysql_debug = $G_page->param( 'mysql_debug' );
 
+  my $show_mysql_debug = $G_script_config->{ show_sql_debug_button };
+
+  my ($param_substitution, %mysql_param_values) = prepare_parameter( $parameter );
+
+  my $title = $G_script_config->{ title } || '';
+
+  my $description = $G_script_config->{ description } || '';
 
   # --- start generate html ------------------------------------------------------------------------
 
@@ -70,7 +83,7 @@ sub main{
 
   print "<div class=\"qform\">\n";
 
-  print "<b>$G_script_config->{title}</b>\n<br><br>\n";
+  print "<b>$title</b><br>$description\n<br><br><br>\n";
 
   print $G_page->start_form(
 			  -name    => 'MySQL Report',
@@ -83,17 +96,23 @@ sub main{
 
   $DB::single = 1;
 
-  print make_query_param_form( \%mysql_param_values, $parameter, $db_name );
-
-  my $mysql_debug = 1;
+  print make_query_param_form( \%mysql_param_values, $parameter, $db_name, $sql_limit_cfg, $show_mysql_debug);
 
   my $my_sql_arg = '';
   if( $G_page->param( 'mysql_debug' ) eq 'true' ){
     $my_sql_arg = '-v';
   }
 
+  my $tmp_sql_file = "/tmp/_tmp_rep_sql_file.sql";
+
+  `cp $G_script_config->{ path } $tmp_sql_file; chmod 777 $tmp_sql_file;`;
+
+  if($show_mysql_debug){
+    `echo " limit $sql_limit;" >> $tmp_sql_file`;
+  }
+
   # mysql -v gibt die Parameter und das SQL aus !!! sehr hilfreich für das Debugging !!!
-  my $cmd = "mysql $my_sql_arg $G_connect_list->{ $db_name } -A $param_substitution -H < $G_script_config->{ path }";
+  my $cmd = "mysql $my_sql_arg $G_connect_list->{ $db_name } -A $param_substitution -H < $tmp_sql_file";
 
   $DB::single = 1;
   
@@ -106,20 +125,27 @@ sub main{
      die "Error '$status' on execution command '$cmd' Output:$ret Systemerror:$!\n";
   }
 
-  if( $G_page->param( 'mysql_debug' ) eq 'true' ){
+  if( defined $mysql_debug and $mysql_debug eq 'true' ){
     $ret =~ s/--------------\n/<br>--------------<br>/sg;
   }
 
-  print $ret;
+  if( ! defined $ret or $ret eq ''){
+    print "Nichts gefunden!<br>";
+  }
+  else{
+    print $ret;
+  }
 
   print $G_page->end_html;
 }
 
 
 sub make_query_param_form{
-  my ( $mysql_param_values, $parameter, $db_name )= @_; 
+  my ( $mysql_param_values, $parameter, $db_name, $sql_limit, $show_mysql_debug )= @_; 
 
   
+  $DB::single = 1;
+
   my $db = $G_script_config->{ db_list };
 
   my @values = keys %{ $db }; 
@@ -139,7 +165,46 @@ sub make_query_param_form{
 					     )
 			   )
 		 ) . "\n";
-  
+
+  if ( $show_mysql_debug eq 'true' ){
+    $labels = { 'true' => 'ja', 'false' => 'nein' };
+    @values = ( 'true', 'false' );
+
+    $form .= $G_page->Tr(
+			 $G_page->td('SQL anzeigen:'),
+			 $G_page->td(
+				     $G_page->popup_menu(
+							 -name    => 'mysql_debug',
+							 -values  => \@values, 
+							 -labels  => $labels,
+							 -default => 'false'
+							)
+				    )
+			) . "\n";
+
+  }
+
+  if ( $sql_limit ){
+    my @limits = split /, */, $sql_limit;
+
+    $sql_limit =~ s/, *//g;
+
+    # ??? all limits nummeric ???
+    if( $sql_limit =~ /^\d+$/ ){
+        $form .= $G_page->Tr(
+		  $G_page->td('Max. angezeigte Treffer:'),
+		  $G_page->td(
+			    $G_page->popup_menu(
+					      -name    => 'sql_limit',
+					      -values  => \@limits,
+					      -default => $limits[0]
+					     )
+			   )
+		 ) . "\n";
+
+    }
+  }
+
   $form .= $G_page->hidden(
 		      -name      => 'script',
 		      -default   => $G_script_name
@@ -276,7 +341,8 @@ sub get_json_config{
    my $config_data;
 
    eval {
-     $config_data = decode_json($data);
+     $config_data = JSON->new->latin1->decode($data);
+     #$config_data = decode_json($data);
      1;
    } or do {
      my $e = $@;
@@ -288,7 +354,7 @@ sub get_json_config{
  }
 
 sub prepare_parameter{
-  my $parameter = shift;
+  my ( $parameter ) = @_;
 
   my %mysql_param_values;
   my $mysql_param_data = '';
@@ -347,55 +413,22 @@ sub get_script_name_from_param{
 }
 
 sub save_restore_cgi{
+  my $mode = shift;
+
   my $file = '/tmp/test.cgi_data'; # -- test --
 
-  # wiederherstellen
-  #open(FH,$file) or die "open >$file Error!\n$!"; # -- test --
-  #$G_page = new CGI(*FH); # -- test --
-
-  # sichern
-  #open(FH,">$file") or die "open >$file Error!\n$!"; # -- test --
-  #$G_page->save(*FH); # -- test --
+  if( $mode eq 'w' ){
+    # wiederherstellen
+    open(FH,$file) or die "open >$file Error!\n$!"; # -- test --
+    $G_page = new CGI(*FH); # -- test --
+  }
+  elsif( $mode eq 's' ){
+    # sichern
+    # open(FH,">$file") or die "open >$file Error!\n$!"; # -- test --
+    # $G_page->save(*FH); # -- test --
+  }
 }
 
-#   my %connect = ( 
-# 		 'local_wetter' => '-hlocalhost -Dwetter_koorin -uwikiuser -pmysql1234',
-		 
-# 		 'devel-koorin' => '-hdb-devel-sin-1.mm.br.de -Dwetter_koorin -uwetter_koorin -pwEtTer5',
-
-# 		 'qs-koorin'    => '-hdb-qs-sin-2.mm.br.de -Dwetter_koorin -uwetter_koorin -pwEtTer5'
-# 		);
-
-#   my %script = (
-# 		sele_regio_reports => { 
-# 				       db => { 'devel-koorin' => 'devel DB koorin', 'qs-koorin' => 'qs DB koorin' },
-# 				       pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_regio_reports.sql',
-# 				       titel => 'Liste der aktuellen Regionalwetterberichte',
-
-# 				      },
-
-# 		sele_single_regio_report => { 
-# 					     pfad =>'/home/mucha/idea/wetter-trunk/database/reports/sele_single_regio_report.sql',
-# 					     titel => 'Inhalt einzelner Regionalwetterbericht',
-# 					     # IDEE: Felder help, default (Defaultwert)
-# 					     db => { 'devel-koorin' => 'devel DB koorin', 'qs-koorin' => 'qs DB koorin' },
-# 					     parameter => {
-# 							   valid_from => { name => "Validierungszeit (yyyy-mm-dd hh24:mi:ss)" }, 
-# 							   basetype => { name => "Berichtstyp" },
-# 							  },
-# 					    },
-# 		select_svn_logt => { 
-# 				    pfad  => '/home/mucha/pj/subversion/svnlog/select_svn_log.sql',
-# 				    titel => 'SVN Log Wetter',
-# 				    db    => { 'local_wetter' => 'Lokale Wetter DB' },
-# 				    # IDEE: Felder help, default (Defaultwert)
-# 				    parameter => {
-# 						  autor => { name => "Autor der Version", default => '%' },
-# 						  rev => { name => "SVN Revision", default => '%' },
-# 						 },
-# 				   }
-# 	       );
-	      
 __END__
 
 =pod
