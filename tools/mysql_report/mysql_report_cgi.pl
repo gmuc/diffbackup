@@ -46,12 +46,12 @@ main();
 
 sub main{
 
+  $DB::single = 1;
+
   # w = wiederherstellen, s = sichern
   save_restore_cgi('');
 
   my $tab_style = get_tab_style();
-
-  $DB::single = 1;
 
   get_script_name_from_param();
 
@@ -62,6 +62,12 @@ sub main{
   my $sql_limit = $G_page->param( 'sql_limit' ) || 2000;
 
   my $sql_limit_cfg = $G_script_config->{ show_sql_limit };
+
+  # --- Order by
+  my $order_by = $G_page->param( 'order_by' );
+  my $order_direction = $G_page->param( 'order_direction' ) || 'desc';
+  my $order_by2 = $G_page->param( 'order_by2' );
+  my $order_direction2 = $G_page->param( 'order_direction2' ) || 'desc';
 
   my $parameter = $G_script_config->{ parameter };
 
@@ -96,7 +102,12 @@ sub main{
 
   $DB::single = 1;
 
-  print make_query_param_form( \%mysql_param_values, $parameter, $db_name, $sql_limit_cfg, $show_mysql_debug);
+  print make_query_param_form( \%mysql_param_values, 
+			       $parameter, 
+			       $db_name, 
+			       $sql_limit_cfg, 
+			       $show_mysql_debug
+			     );
 
   my $my_sql_arg = '';
   if( $G_page->param( 'mysql_debug' ) eq 'true' ){
@@ -107,12 +118,22 @@ sub main{
 
   `cp $G_script_config->{ path } $tmp_sql_file; chmod 777 $tmp_sql_file;`;
 
-  if($show_mysql_debug){
+  if( $order_by ){
+    `echo " order by $order_by $order_direction " >> $tmp_sql_file`;
+
+    if( $order_by2 and $order_by2 ne '----' ){
+      `echo ", $order_by2 $order_direction2 " >> $tmp_sql_file`;
+    }
+  }
+
+  if( $sql_limit_cfg ){
     `echo " limit $sql_limit;" >> $tmp_sql_file`;
   }
 
+  $param_substitution .= " source $tmp_sql_file;'";
+
   # mysql -v gibt die Parameter und das SQL aus !!! sehr hilfreich für das Debugging !!!
-  my $cmd = "mysql $my_sql_arg $G_connect_list->{ $db_name } -A $param_substitution -H < $tmp_sql_file";
+  my $cmd = "mysql $my_sql_arg $G_connect_list->{ $db_name } -A $param_substitution -H";
 
   $DB::single = 1;
   
@@ -145,6 +166,10 @@ sub make_query_param_form{
 
   
   $DB::single = 1;
+
+  # --- order by
+  my $order_by_cfg = $G_script_config->{ order_by_cfg };
+  my $order_by_cfg2 = $G_script_config->{ order_by_cfg2 };
 
   my $db = $G_script_config->{ db_list };
 
@@ -182,6 +207,27 @@ sub make_query_param_form{
 				    )
 			) . "\n";
 
+  }
+
+  if ( $order_by_cfg ){
+
+    $form .= make_sort_fields( $order_by_cfg,      # order_by_cfg 
+			       'order_by',         # sort_field_name 
+			       'order_direction',  # direction_field_name
+			       'order_by',         # order_by_param
+			       'order_direction',  # order_direction_param 
+			       'Sortieren nach:'); # Sortfield Lable
+
+
+    if ( $order_by_cfg2 ){
+
+      $form .= make_sort_fields( $order_by_cfg2,        # order_by_cfg 
+				 'order_by2',           # sort_field_name 
+				 'order_direction2',    # direction_field_name
+				 'order_by2',           # order_by_param
+				 'order_direction2',    # order_direction_param 
+				 'Sortieren nach (Feld 2):'); # Sortfield Lable
+    }
   }
 
   if ( $sql_limit ){
@@ -270,6 +316,54 @@ sub make_query_param_form{
   $form .= $G_page->end_form . "\n<br><br>\n";
 
   return $form;
+}
+
+sub make_sort_fields{
+  my ( $order_by_cfg, 
+       $sort_field_name, 
+       $direction_field_name, 
+       $order_by_param, 
+       $order_direction_param,
+       $sortfield_lable) = @_;
+
+  $DB::single = 1;
+
+  my $order_by = $G_page->param( $order_by_param ) || $G_script_config->{ $order_by_param };
+  my $order_direction = $G_page->param( $order_direction_param ) || $G_script_config->{ $order_direction_param } || 'desc';
+
+  my @values = sort {
+    $order_by_cfg->{$a} cmp $order_by_cfg->{$b}
+	or
+	  "\L$a" cmp "\L$b"
+	} keys %{ $order_by_cfg };
+
+  my $labels = $order_by_cfg;
+
+  my $labels2 = { 'desc' => 'absteigend', 'asc' => 'aufsteigend' };
+  my @values2 = ( 'desc', 'asc' );
+
+  my $html = $G_page->Tr(
+			 $G_page->td( $sortfield_lable ),
+			 $G_page->td(
+				     $G_page->popup_menu(
+							 -name    => $sort_field_name,
+							 -values  => \@values, 
+							 -labels  => $labels,
+							 -default => $order_by
+							)
+				    ),
+
+			 $G_page->td({-align=>'left'}, "Sortierrichtung:<br>",
+				     $G_page->radio_group(
+							 -name    => $direction_field_name, 
+							 -values  => \@values2, 
+							 -labels  => $labels2,
+							 -default => $order_direction
+							)
+				    )
+			) . "\n";
+
+  return $html;
 }
 
 sub get_tab_style{
@@ -378,10 +472,11 @@ sub prepare_parameter{
 
     }
 
-    $param_substitution = $mysql_param_data . " source  $G_script_config->{path};";
+    $param_substitution = $mysql_param_data;
+    #$param_substitution = $mysql_param_data . " source  $G_script_config->{path};";
 
     if($param_substitution){
-      $param_substitution = "-e'$param_substitution'";
+      $param_substitution = "-e'$param_substitution";
     }
   }
 
@@ -417,6 +512,10 @@ sub save_restore_cgi{
 
   my $file = '/tmp/test.cgi_data'; # -- test --
 
+  if( ! defined $mode or $mode eq '' ){
+    return;
+  }
+
   if( $mode eq 'w' ){
     # wiederherstellen
     open(FH,$file) or die "open >$file Error!\n$!"; # -- test --
@@ -424,8 +523,11 @@ sub save_restore_cgi{
   }
   elsif( $mode eq 's' ){
     # sichern
-    # open(FH,">$file") or die "open >$file Error!\n$!"; # -- test --
-    # $G_page->save(*FH); # -- test --
+    open(FH,">$file") or die "open >$file Error!\n$!"; # -- test --
+    $G_page->save(*FH); # -- test --
+  }
+  else{
+    die "Illegaler Save/Restore Mode '$mode'! Bitte 'w' oder 's' verwenden!";
   }
 }
 
@@ -448,7 +550,7 @@ Mittels einer JSON Konfigurationsdatei können SQL Abfragen über den WEBServer ge
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2013 by G. Mucha
+Copyright 2013-2014 by G. Mucha
 
 This code is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
